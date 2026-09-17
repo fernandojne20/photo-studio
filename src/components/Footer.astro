@@ -1,0 +1,100 @@
+---
+import { site, buildWhatsAppUrl } from '../config/site';
+import WhatsApp from './icons/WhatsApp.astro';
+import Instagram from './icons/Instagram.astro';
+
+const whatsAppUrl = buildWhatsAppUrl(site.whatsapp);
+const { a11y } = site.copy;
+---
+
+<footer class="footer">
+  <div class="container footer__inner">
+    <a
+      class="footer__instagram footer__instagram--desktop"
+      href={site.instagram.url}
+      target="_blank"
+      rel="noopener"
+      aria-label={a11y.instagram}
+    >
+      <Instagram class="footer__icon" />
+    </a>
+
+    <hr class="footer__rule" />
+
+    <p class="footer__line footer__line--desktop">
+      {site.contact.email} &middot; {site.contact.phoneDisplay}
+    </p>
+
+    <div class="footer__mobile">
+      <p class="footer__line">{site.contact.email}</p>
+      <div class="footer__mobile-icons">
+        <a href={whatsAppUrl} target="_blank" rel="noopener" aria-label={a11y.whatsapp}>
+          <WhatsApp class="footer__icon" />
+        </a>
+        <a href={site.instagram.url} target="_blank" rel="noopener" aria-label={a11y.instagram}>
+          <Instagram class="footer__icon" />
+        </a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    padding-block: var(--space-xl);
+    text-align: center;
+  }
+
+  /* Icons are sized with `1em`, so the link's font-size controls them. */
+  .footer__instagram--desktop {
+    display: inline-flex;
+    font-size: 1.5rem;
+    color: var(--color-text);
+    margin-bottom: var(--space-md);
+  }
+
+  .footer__rule {
+    border: none;
+    border-top: 1px solid var(--color-hairline);
+    margin-bottom: var(--space-md);
+  }
+
+  .footer__line {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    letter-spacing: var(--tracking-ui);
+    color: var(--color-text);
+  }
+
+  .footer__line--desktop {
+    display: block;
+  }
+
+  .footer__mobile {
+    display: none;
+  }
+
+  .footer__mobile-icons {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm);
+  }
+
+  .footer__mobile-icons a {
+    display: inline-flex;
+    font-size: 1.5rem;
+    color: var(--color-text);
+  }
+
+  @media (max-width: 900px) {
+    .footer__instagram--desktop,
+    .footer__line--desktop {
+      display: none;
+    }
+
+    .footer__mobile {
+      display: block;
+    }
+  }
+</style>

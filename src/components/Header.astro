@@ -1,0 +1,272 @@
+---
+import { site, buildWhatsAppUrl } from '../config/site';
+import WhatsApp from './icons/WhatsApp.astro';
+import Instagram from './icons/Instagram.astro';
+
+const visibleItems = site.navigation.filter((item) => item.visible);
+const whatsAppUrl = buildWhatsAppUrl(site.whatsapp);
+const { a11y } = site.copy;
+---
+
+<header class="header">
+  <div class="header__row container">
+    <div class="header__icons">
+      <a
+        class="header__icon-link"
+        href={whatsAppUrl}
+        target="_blank"
+        rel="noopener"
+        aria-label={a11y.whatsapp}
+      >
+        <WhatsApp class="header__icon" />
+      </a>
+      <a
+        class="header__icon-link"
+        href={site.instagram.url}
+        target="_blank"
+        rel="noopener"
+        aria-label={a11y.instagram}
+      >
+        <Instagram class="header__icon" />
+      </a>
+    </div>
+
+    <a class="header__brand" href="#inicio" aria-label={a11y.goHome}>
+      <span>{site.name.split(' ')[0]}</span>
+      <span>{site.name.split(' ').slice(1).join(' ')}</span>
+    </a>
+
+    <nav class="header__nav" aria-label={a11y.mainMenu}>
+      <ul role="list" class="header__nav-list">
+        {
+          visibleItems.map((item) => {
+            const href = item.kind === 'whatsapp' ? whatsAppUrl : item.href;
+            const isCurrent = item.id === 'lau';
+            return (
+              <li>
+                <a
+                  class:list={['header__nav-link', { 'header__nav-link--current': isCurrent }]}
+                  href={href}
+                  target={item.kind === 'whatsapp' ? '_blank' : undefined}
+                  rel={item.kind === 'whatsapp' ? 'noopener' : undefined}
+                  aria-current={isCurrent ? 'page' : undefined}
+                >
+                  {item.label}
+                </a>
+              </li>
+            );
+          })
+        }
+      </ul>
+    </nav>
+
+    <button
+      class="header__toggle"
+      type="button"
+      aria-expanded="false"
+      aria-controls="mobile-menu"
+      data-menu-toggle
+      data-close-label={a11y.closeMenu}
+    >
+      <span class="visually-hidden" data-menu-toggle-label>{a11y.openMenu}</span>
+      <span class="header__toggle-bars" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </span>
+    </button>
+  </div>
+
+  <nav id="mobile-menu" class="header__mobile-nav" aria-label={a11y.mainMenu} hidden>
+    <ul role="list" class="header__mobile-nav-list">
+      {
+        visibleItems.map((item) => {
+          const href = item.kind === 'whatsapp' ? whatsAppUrl : item.href;
+          return (
+            <li>
+              <a
+                class="header__mobile-nav-link"
+                href={href}
+                target={item.kind === 'whatsapp' ? '_blank' : undefined}
+                rel={item.kind === 'whatsapp' ? 'noopener' : undefined}
+              >
+                {item.label}
+              </a>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </nav>
+</header>
+
+<style>
+  .header {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    z-index: 20;
+    color: var(--color-text-hero);
+  }
+
+  /* Desktop: icons left, nav centered (mockup); the brand and toggle are mobile-only. */
+  .header__row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: var(--space-md);
+    padding-block: var(--space-md);
+    border-bottom: 1px solid var(--color-hairline-hero);
+  }
+
+  .header__nav {
+    grid-column: 2;
+  }
+
+  .header__icons {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  /* Icons are sized with `1em`, so the link's font-size controls them. */
+  .header__icon-link {
+    display: inline-flex;
+    font-size: 1.25rem;
+    color: inherit;
+    transition: opacity var(--duration-fast) var(--ease-standard);
+  }
+
+  .header__icon-link:hover {
+    opacity: 0.75;
+  }
+
+  .header__brand {
+    display: none;
+    flex-direction: column;
+    line-height: 1.2;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-heading);
+    text-transform: uppercase;
+    color: inherit;
+  }
+
+  .header__nav-list {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+  }
+
+  .header__nav-link {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    letter-spacing: var(--tracking-ui);
+    color: inherit;
+    padding-block: var(--space-3xs);
+  }
+
+  .header__nav-link--current {
+    padding-inline: var(--space-sm);
+    border-radius: var(--radius-pill);
+    background: var(--color-overlay-dark);
+  }
+
+  .header__toggle {
+    display: none;
+    color: inherit;
+  }
+
+  .header__toggle-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .header__toggle-bars span {
+    display: block;
+    width: 22px;
+    height: 1.5px;
+    background: currentColor;
+  }
+
+  .header__mobile-nav {
+    background: var(--color-bg-dark);
+  }
+
+  .header__mobile-nav-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header__mobile-nav-link {
+    display: block;
+    padding: var(--space-sm) var(--container-padding);
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    letter-spacing: var(--tracking-ui);
+    color: var(--color-text-hero);
+    border-top: 1px solid var(--color-hairline-hero);
+  }
+
+  @media (max-width: 900px) {
+    .header__row {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* The mobile mockup shows brand + toggle only; the icons live in the footer. */
+    .header__icons {
+      display: none;
+    }
+
+    .header__brand {
+      display: flex;
+    }
+
+    .header__nav {
+      display: none;
+    }
+
+    .header__toggle {
+      display: inline-flex;
+    }
+  }
+</style>
+
+<script>
+  const toggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
+  const label = toggle?.querySelector<HTMLElement>('[data-menu-toggle-label]');
+  const menu = document.getElementById('mobile-menu');
+  const openLabel = label?.textContent ?? '';
+
+  if (toggle && menu) {
+    const closeLabel = toggle.dataset.closeLabel ?? openLabel;
+
+    const setOpen = (open: boolean) => {
+      toggle.setAttribute('aria-expanded', String(open));
+      menu.hidden = !open;
+      if (label) {
+        label.textContent = open ? closeLabel : openLabel;
+      }
+    };
+
+    toggle.addEventListener('click', () => {
+      setOpen(toggle.getAttribute('aria-expanded') !== 'true');
+    });
+
+    menu.addEventListener('click', (event) => {
+      if ((event.target as HTMLElement).tagName === 'A') {
+        setOpen(false);
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
+        setOpen(false);
+        toggle.focus();
+      }
+    });
+  }
+</script>
