@@ -9,16 +9,27 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "studio:dev": "pnpm --filter studio dev",
+    "studio:build": "pnpm --filter studio build",
+    "typegen": "pnpm --filter studio typegen",
+    "content:check": "node --env-file=.env --import tsx scripts/print-home-content.ts"
   },
   "dependencies": {
-    "astro": "^7.3.3"
+    "@sanity/client": "^8.6.2",
+    "@sanity/image-url": "^2.1.1",
+    "astro": "^7.3.3",
+    "groq": "^6.15.0"
   },
   "allowScripts": {
     "esbuild": true
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@portabletext/types": "^4.0.2",
+    "@types/node": "^24.0.0",
+    "astro-portabletext": "^1.0.1",
+    "tsx": "^4.19.2",
     "typescript": "^6.0.3"
   }
 }

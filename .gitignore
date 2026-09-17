@@ -28,3 +28,7 @@ tmp/
 
 # playwright mcp output
 .playwright-mcp/
+
+# sanity studio generated files
+studio/schema.json
+studio/dist/
