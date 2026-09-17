@@ -79,6 +79,8 @@ Out of scope: wiring the homepage sections to the content port (`studio-page`), 
 - 2026-09-17 CM-05 done by the user: `pnpm --filter studio exec sanity deploy --schema-required --url laury-herrera` created the hostname, built the Studio (378 ms), deployed 1/1 schemas and published `https://laury-herrera.sanity.studio/` (application id `pafio1dfnssyspf3p4kpwwu6`, now set in `studio/sanity.cli.ts` under `deployment.appId`). MCP `list_workspace_schemas` shows a Studio-deployed `default` workspace titled "Laury Herrera · Contenido" with that application id.
 - 2026-09-17 CM-06 done. With `.env` in place: `pnpm content:check` reported hero, biography, portfolio (9), services (4) all from `sanity`, warnings none; `pnpm astro check` 0 errors / 0 warnings / 0 hints; `pnpm build` completed (1 page). `.env` is untracked and ignored; `.env.example` is committed. The stray `.env.example.draft` is still present and must be deleted by the user (permission block on `.env*` paths).
 
+- 2026-09-17 Review fix (PR #1, Codex P2 on `call-to-action.ts`): `target` had no validation while `mapCta()` drops a CTA without a target, so a label-only CTA could be published and never render. Added a custom rule on `target` mirroring the `label` rule (Spanish error message). Commit `f27a137` on `feat/content-management`; Studio build, typegen (no type diff) and `astro check` pass. The hosted Studio needs a redeploy (user-run `sanity deploy`) to pick up the new rule.
+
 ## Next step
 
-Feature complete. Commit the module; `studio-page` wires the homepage sections to `getHomeContent()` and renders the biography Portable Text with `astro-portabletext`.
+PR #1 open at https://github.com/fernandojne20/photo-studio/pull/1. After merge, redeploy the Studio. `studio-page` wires the homepage sections to `getHomeContent()` and renders the biography Portable Text with `astro-portabletext`.
