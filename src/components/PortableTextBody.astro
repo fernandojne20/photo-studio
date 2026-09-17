@@ -1,0 +1,26 @@
+---
+import { PortableText } from 'astro-portabletext';
+import type { PortableTextBlock } from '@portabletext/types';
+
+interface Props {
+  value: PortableTextBlock[];
+  class?: string;
+}
+
+const { value, class: className } = Astro.props;
+---
+
+<div class:list={['portable-text-body', className]}>
+  <PortableText value={value} />
+</div>
+
+<style>
+  .portable-text-body :global(p) {
+    font-family: var(--font-body);
+    margin-bottom: var(--space-md);
+  }
+
+  .portable-text-body :global(p:last-child) {
+    margin-bottom: 0;
+  }
+</style>

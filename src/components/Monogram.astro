@@ -1,0 +1,37 @@
+---
+import MonogramGlyph from '../assets/logo/lh-monogram.svg';
+import { site } from '../config/site';
+
+interface Props {
+  tone: 'light' | 'muted';
+  class?: string;
+}
+
+const { tone, class: className } = Astro.props;
+---
+
+<span class:list={['monogram', `monogram--${tone}`, className]}>
+  <MonogramGlyph class="monogram__glyph" aria-hidden="true" />
+  <span class="visually-hidden">{site.name}</span>
+</span>
+
+<style>
+  .monogram {
+    display: inline-block;
+    width: 110px;
+  }
+
+  .monogram__glyph {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .monogram--light {
+    color: var(--color-text-hero);
+  }
+
+  .monogram--muted {
+    color: var(--color-heading-dark);
+  }
+</style>
