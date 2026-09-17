@@ -1,0 +1,65 @@
+---
+import SanityImage from '../SanityImage.astro';
+import { site } from '../../config/site';
+import type { PortfolioItem } from '../../content/types';
+
+interface Props {
+  items: PortfolioItem[];
+}
+
+const { items } = Astro.props;
+const { copy } = site;
+---
+
+{
+  items.length > 0 && (
+    <section id="momentos" class="portfolio">
+      <h2 class="portfolio__heading">{copy.portfolioHeading}</h2>
+      <ul role="list" class="portfolio__grid">
+        {items.map((item) => (
+          <li class="portfolio__item">
+            <SanityImage
+              image={item.image}
+              widths={[320, 480, 640, 960]}
+              sizes="(max-width: 640px) 33vw, 455px"
+              aspectRatio="4 / 5"
+              loading="lazy"
+              class="portfolio__image"
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+<style>
+  .portfolio {
+    padding-top: var(--space-lg);
+    text-align: center;
+  }
+
+  .portfolio__heading {
+    display: inline-block;
+    margin-bottom: var(--space-lg);
+    padding: var(--space-xs) var(--space-lg);
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-size: var(--text-lg);
+    color: var(--color-text);
+  }
+
+  .portfolio__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-2xs);
+  }
+
+  .portfolio :global(.portfolio__image) {
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+  }
+</style>

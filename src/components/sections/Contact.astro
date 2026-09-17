@@ -1,0 +1,166 @@
+---
+import { site } from '../../config/site';
+
+const { copy } = site;
+---
+
+<section id="contacto" class="contact container">
+  <div class="contact__inner">
+    <div class="contact__info">
+      <h2 class="contact__heading">{copy.contact.heading}</h2>
+      <p class="contact__intro">{copy.contact.intro}</p>
+      <p class="contact__paragraph">{copy.contact.paragraph}</p>
+      <p class="contact__alt">
+        {copy.contact.alternativeIntro}
+        <br />
+        <a href={`mailto:${site.contact.email}`}>{site.contact.email}</a>
+      </p>
+      <p class="contact__alt">
+        {copy.contact.alternativeCall}
+        <br />
+        <a href={`tel:${site.contact.phoneE164}`}>{site.contact.phoneDisplay}</a>
+      </p>
+    </div>
+
+    <form class="contact__form">
+      <div class="contact__row">
+        <div class="contact__field">
+          <label for="contact-first-name">{copy.contactForm.firstName}</label>
+          <input id="contact-first-name" name="firstName" type="text" autocomplete="given-name" />
+        </div>
+        <div class="contact__field">
+          <label for="contact-last-name">{copy.contactForm.lastName}</label>
+          <input id="contact-last-name" name="lastName" type="text" autocomplete="family-name" />
+        </div>
+      </div>
+
+      <div class="contact__row">
+        <div class="contact__field">
+          <label for="contact-email">{copy.contactForm.email}*</label>
+          <input id="contact-email" name="email" type="email" autocomplete="email" />
+        </div>
+        <div class="contact__field">
+          <label for="contact-phone">{copy.contactForm.phone}</label>
+          <input id="contact-phone" name="phone" type="tel" autocomplete="tel" />
+        </div>
+      </div>
+
+      <div class="contact__field contact__field--full">
+        <label for="contact-message">{copy.contactForm.message}</label>
+        <textarea id="contact-message" name="message" rows="4"></textarea>
+      </div>
+
+      <!-- Static markup only: no `action`, no submission wiring. `contact-conversion` completes this form. -->
+      <button type="button" class="contact__submit">{copy.contactForm.submit}</button>
+    </form>
+  </div>
+</section>
+
+<style>
+  .contact {
+    padding-block: var(--space-2xl);
+  }
+
+  .contact__inner {
+    display: grid;
+    grid-template-columns: 2fr 3fr;
+    gap: var(--space-xl);
+  }
+
+  .contact__heading {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: var(--text-md);
+    letter-spacing: var(--tracking-heading);
+    text-transform: uppercase;
+    margin-bottom: var(--space-sm);
+  }
+
+  .contact__intro {
+    margin-bottom: var(--space-md);
+  }
+
+  .contact__paragraph {
+    margin-bottom: var(--space-md);
+    color: var(--color-text-muted);
+  }
+
+  .contact__alt {
+    margin-bottom: var(--space-sm);
+    color: var(--color-text-muted);
+  }
+
+  .contact__alt a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+
+  .contact__form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .contact__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-md);
+  }
+
+  .contact__field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xs);
+  }
+
+  .contact__field label {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-ui);
+    text-transform: uppercase;
+    color: var(--color-text);
+  }
+
+  .contact__field input,
+  .contact__field textarea {
+    border: none;
+    border-bottom: 1px solid var(--color-hairline);
+    background: transparent;
+    padding-block: var(--space-2xs);
+    font-family: var(--font-body);
+    color: var(--color-text);
+    resize: none;
+    transition: border-color var(--duration-fast) var(--ease-standard);
+  }
+
+  .contact__field input:hover,
+  .contact__field textarea:hover {
+    border-color: var(--color-text);
+  }
+
+  .contact__submit {
+    align-self: flex-end;
+    padding: var(--space-xs) var(--space-lg);
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-serif);
+    font-size: var(--text-base);
+    color: var(--color-text);
+    transition: opacity var(--duration-fast) var(--ease-standard);
+  }
+
+  .contact__submit:hover {
+    opacity: 0.7;
+  }
+
+  @media (max-width: 900px) {
+    .contact__inner {
+      grid-template-columns: 1fr;
+    }
+
+    .contact__alt {
+      display: none;
+    }
+  }
+</style>
