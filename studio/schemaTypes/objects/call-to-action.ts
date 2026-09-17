@@ -43,6 +43,17 @@ export const callToAction = defineType({
           {title: 'Enlace externo', value: 'url'},
         ],
       },
+      // Mirrors the `label` rule: a started CTA needs a destination, otherwise
+      // the site mapper drops it silently.
+      validation: (Rule) =>
+        Rule.custom((value, context) => {
+          const parent = context.parent as CallToActionParent | undefined
+          const hasOtherFields = Boolean(parent?.label || parent?.url)
+          if (hasOtherFields && !value) {
+            return 'Elegí un destino para el llamado a la acción.'
+          }
+          return true
+        }),
     }),
     defineField({
       name: 'url',
