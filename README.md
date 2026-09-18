@@ -43,7 +43,9 @@ Run the same checks locally with:
 pnpm check
 ```
 
-which runs lint, format check, typecheck, the unit tests, the generated-types drift check, and both the site and Studio production builds, in order, failing fast.
+which runs lint, format check, typecheck, the unit tests, the generated-types drift check, and the site build, then the Studio lint, format check, typecheck, and build, in order, failing fast.
+
+One difference is intentional: locally the site build runs without `CONTENT_FALLBACKS`, so it fetches the real Sanity content from your `.env` and fails on a broken content contract, while CI builds with fallbacks enabled.
 
 ## Repository layout
 

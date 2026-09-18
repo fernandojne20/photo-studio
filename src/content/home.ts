@@ -41,10 +41,27 @@ const WARNING_PREFIX = '[content]';
  *   with a `console.warn`.
  * - Otherwise (production build): a fetch error or a missing `homePage`
  *   throws; an empty portfolio/services list returns an empty array.
+ *
+ * Pure decision function, kept separate from environment access so the
+ * rule itself can be unit-tested without stubbing `import.meta.env` /
+ * `process.env` (see `home.test.ts`): an explicit `option` always wins;
+ * otherwise fallbacks are allowed in dev, or when `flag` is exactly the
+ * string `'true'`.
+ */
+export function resolveFallbackPolicy(input: {
+  option?: 'allow' | 'deny';
+  dev: boolean;
+  flag?: string;
+}): boolean {
+  if (input.option) return input.option === 'allow';
+  return input.dev || input.flag === 'true';
+}
+
+/**
+ * Thin environment reader: gathers `dev` and `flag` exactly as before and
+ * delegates the decision to `resolveFallbackPolicy`.
  */
 function resolveAllowFallbacks(options?: GetHomeContentOptions): boolean {
-  if (options?.fallbacks) return options.fallbacks === 'allow';
-
   const metaEnv =
     typeof import.meta !== 'undefined'
       ? (import.meta as { env?: Record<string, unknown> }).env
@@ -52,7 +69,7 @@ function resolveAllowFallbacks(options?: GetHomeContentOptions): boolean {
   const dev = Boolean(metaEnv?.DEV);
   const flag = (metaEnv?.CONTENT_FALLBACKS as string | undefined) ?? process.env.CONTENT_FALLBACKS;
 
-  return dev || flag === 'true';
+  return resolveFallbackPolicy({ option: options?.fallbacks, dev, flag });
 }
 
 function warn(message: string): string {
