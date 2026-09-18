@@ -25,10 +25,13 @@ const ZERO_WIDTH_JOINER = 0x200d;
 
 /**
  * True for every code point this helper always removes, regardless of
- * `keepNewlines`: C0/C1 controls (including DEL and NEL), the Unicode
- * line/paragraph separators, the zero-width/direction marks other than
- * ZWJ, the bidi embedding/override controls, the word joiner and
- * invisible math operators, the bidi isolates, and the BOM.
+ * `keepNewlines`: C0/C1 controls (including DEL and NEL), the soft
+ * hyphen, the Unicode line/paragraph separators, the zero-width marks
+ * other than ZWJ, the whole Unicode `Bidi_Control` set (U+061C, U+200E,
+ * U+200F, U+202A..U+202E, U+2066..U+2069), the word joiner and invisible
+ * math operators, the deprecated format controls (U+206A..U+206F, which
+ * also alter shaping and mirroring), the Mongolian vowel separator, the
+ * interlinear annotation controls, and the BOM.
  *
  * `\t` and `\n` are handled by the caller before this check runs (they
  * get their own, non-binary treatment), and the ZWJ (U+200D) is handled
@@ -38,12 +41,18 @@ function isAlwaysUnsafeCodePoint(code: number): boolean {
   if (code <= 0x1f) return true; // C0 controls (\t and \n excluded by the caller)
   if (code === 0x7f) return true; // DEL
   if (code >= 0x80 && code <= 0x9f) return true; // C1 controls, incl. NEL (U+0085)
+  if (code === 0x00ad) return true; // SOFT HYPHEN (invisible unless a line breaks on it)
+  if (code === 0x061c) return true; // ARABIC LETTER MARK (bidi control)
+  if (code === 0x180e) return true; // MONGOLIAN VOWEL SEPARATOR (invisible)
   if (code === 0x2028 || code === 0x2029) return true; // LINE / PARAGRAPH SEPARATOR
   if (code >= 0x200b && code <= 0x200f && code !== ZERO_WIDTH_JOINER) return true; // ZWSP, ZWNJ, LRM, RLM
   if (code >= 0x202a && code <= 0x202e) return true; // bidi embedding/override (LRE..RLO)
-  if (code >= 0x2060 && code <= 0x2064) return true; // word joiner, invisible operators
-  if (code >= 0x2066 && code <= 0x2069) return true; // bidi isolates (LRI..PDI)
+  // One block: word joiner and invisible operators (U+2060..U+2064), the
+  // bidi isolates (U+2066..U+2069) and the deprecated format controls
+  // (U+206A..U+206F). U+2065 is unassigned and default-ignorable.
+  if (code >= 0x2060 && code <= 0x206f) return true;
   if (code === 0xfeff) return true; // BOM / zero-width no-break space
+  if (code >= 0xfff9 && code <= 0xfffb) return true; // interlinear annotation controls
   return false;
 }
 
