@@ -23,7 +23,7 @@
     "typegen:check": "pnpm typegen && git diff --exit-code -- src/sanity/sanity.types.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm typegen:check && pnpm build && pnpm --filter studio lint && pnpm --filter studio typecheck && pnpm --filter studio build"
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm typegen:check && pnpm build && pnpm --filter studio lint && pnpm --filter studio format:check && pnpm --filter studio typecheck && pnpm --filter studio build"
   },
   "dependencies": {
     "@sanity/client": "^8.6.2",
