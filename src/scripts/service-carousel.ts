@@ -43,12 +43,23 @@ export function initServiceCarousel(root: HTMLElement): void {
 
   const emblaApi = EmblaCarousel(viewport, options);
 
+  // `aria-disabled`, not the `disabled` property: a browser drops focus to
+  // `<body>` when the element holding it becomes disabled, which would throw
+  // a keyboard user out mid-navigation (e.g. clicking "next" until the end).
+  // `aria-disabled` keeps the button focusable and clickable, so the click
+  // handlers below check it themselves before acting.
+  const setButtonDisabled = (button: HTMLButtonElement, disabled: boolean): void => {
+    button.setAttribute('aria-disabled', String(disabled));
+  };
+  const isButtonDisabled = (button: HTMLButtonElement): boolean =>
+    button.getAttribute('aria-disabled') === 'true';
+
   const updateButtons = (): void => {
     const isMobile = mobileQuery.matches;
     prevButton.hidden = isMobile;
     nextButton.hidden = isMobile;
-    prevButton.disabled = !emblaApi.canScrollPrev();
-    nextButton.disabled = !emblaApi.canScrollNext();
+    setButtonDisabled(prevButton, !emblaApi.canScrollPrev());
+    setButtonDisabled(nextButton, !emblaApi.canScrollNext());
 
     // On mobile the cards are a plain stacked list: announcing a carousel
     // or adding a tab stop that scrolls nothing would mislead keyboard and
@@ -62,14 +73,30 @@ export function initServiceCarousel(root: HTMLElement): void {
     }
   };
 
+  // No separate `mobileQuery` listener: Embla's own `breakpoints` handling
+  // already watches this exact query and emits `reInit` on every crossing
+  // (see `activate`/`reActivate` in `embla-carousel.esm.js`), so a second,
+  // independent listener would only risk running in a different order.
   emblaApi.on('select', updateButtons);
   emblaApi.on('reInit', updateButtons);
-  mobileQuery.addEventListener('change', updateButtons);
 
-  prevButton.addEventListener('click', () => emblaApi.scrollPrev());
-  nextButton.addEventListener('click', () => emblaApi.scrollNext());
+  prevButton.addEventListener('click', () => {
+    if (isButtonDisabled(prevButton)) return;
+    emblaApi.scrollPrev();
+  });
+  nextButton.addEventListener('click', () => {
+    if (isButtonDisabled(nextButton)) return;
+    emblaApi.scrollNext();
+  });
 
   root.addEventListener('keydown', (event: KeyboardEvent) => {
+    // Never hijack a modified arrow: Alt+ArrowLeft is browser "back",
+    // Cmd/Ctrl/Shift+Arrow have their own native text and selection meanings.
+    if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+    // Embla is inactive at this width (see the `breakpoints` option above);
+    // nothing here is scrollable.
+    if (mobileQuery.matches) return;
+
     if (event.key === 'ArrowLeft') {
       event.preventDefault();
       emblaApi.scrollPrev();

@@ -201,7 +201,7 @@ export const site: SiteConfig = {
       lightboxIndexSep: ' de ',
       servicesCarouselLabel: 'Servicios',
       servicesCarouselPrev: 'Servicios anteriores',
-      servicesCarouselNext: 'Más servicios',
+      servicesCarouselNext: 'Servicios siguientes',
     },
   },
 };

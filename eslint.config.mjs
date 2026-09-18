@@ -88,12 +88,6 @@ export default defineConfig(
       // https://www.scottohara.me/blog/2019/01/12/lists-and-safari.html).
       // The explicit `role="list"` is required by that fix, not redundant.
       'astro/jsx-a11y/no-redundant-roles': 'off',
-      // `ServicesCarousel.astro`'s `role="region"` wrapper needs
-      // `tabindex="0"` so keyboard users can focus it and scroll it with
-      // ArrowLeft/ArrowRight, the standard "scrollable region must be
-      // focusable" technique (W3C WAI-ARIA APG carousel pattern). Allowing
-      // `region` here is narrower than disabling the rule outright.
-      'astro/jsx-a11y/no-noninteractive-tabindex': ['error', { roles: ['region'] }],
     },
   },
 );

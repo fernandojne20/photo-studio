@@ -11,14 +11,7 @@ const { services } = Astro.props;
 const { a11y } = site.copy;
 ---
 
-<div
-  class="carousel"
-  role="region"
-  aria-roledescription="carousel"
-  aria-label={a11y.servicesCarouselLabel}
-  tabindex="0"
-  data-service-carousel
->
+<div class="carousel" role="region" aria-label={a11y.servicesCarouselLabel} data-service-carousel>
   <div class="carousel__viewport" data-carousel-viewport>
     <ul role="list" class="carousel__container">
       {services.map((service) => (
@@ -35,7 +28,7 @@ const { a11y } = site.copy;
       data-carousel-prev
       aria-label={a11y.servicesCarouselPrev}
       hidden
-      disabled
+      aria-disabled="true"
     >
       <span aria-hidden="true">‹</span>
     </button>
@@ -70,8 +63,7 @@ const { a11y } = site.copy;
     scroll-snap-type: x mandatory;
   }
 
-  /* Once the script below has initialized Embla, it takes over scrolling
-     through its own transform-based dragging instead. */
+  /* Once the script below has initialized Embla, it takes over scrolling through its own transform-based dragging instead. */
   .carousel[data-carousel-ready] .carousel__viewport {
     overflow: hidden;
     scroll-snap-type: none;
@@ -96,6 +88,8 @@ const { a11y } = site.copy;
     display: flex;
     justify-content: center;
     gap: var(--space-sm);
+    /* Reserves the buttons' own height, so revealing them once the deferred module script runs does not push the following content down. */
+    min-height: 2.75rem;
   }
 
   .carousel__button {
@@ -114,19 +108,17 @@ const { a11y } = site.copy;
     transition: opacity var(--duration-fast) var(--ease-standard);
   }
 
-  /* `[hidden]` and `.carousel__button` have equal specificity, and this
-     author rule would otherwise win over the UA stylesheet's `display: none`
-     (later in the cascade), leaving the button laid out off-screen instead
-     of actually hidden before the script reveals it. */
+  /* `[hidden]` and `.carousel__button` have equal specificity, and this author rule would otherwise win over the UA stylesheet's `display: none` (later in the cascade), leaving the button laid out off-screen instead of actually hidden before the script reveals it. */
   .carousel__button[hidden] {
     display: none;
   }
 
-  .carousel__button:hover:not(:disabled) {
+  .carousel__button:hover:not([aria-disabled='true']) {
     opacity: 0.75;
   }
 
-  .carousel__button:disabled {
+  /* `aria-disabled` instead of the `disabled` property, so a browser never drops focus from a button disabled while it has it (the click handlers in `service-carousel.ts` return early on this state). */
+  .carousel__button[aria-disabled='true'] {
     opacity: 0.35;
     cursor: default;
   }
@@ -151,6 +143,11 @@ const { a11y } = site.copy;
     .carousel__slide {
       flex: 1 1 auto;
       width: 100%;
+    }
+
+    /* The controls never appear at this width, so no height to reserve. */
+    .carousel__controls {
+      min-height: 0;
     }
   }
 </style>
