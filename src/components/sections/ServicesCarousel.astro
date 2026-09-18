@@ -1,0 +1,164 @@
+---
+import ServiceCardItem from './ServiceCardItem.astro';
+import { site } from '../../config/site';
+import type { ServiceCard } from '../../content/types';
+
+interface Props {
+  services: ServiceCard[];
+}
+
+const { services } = Astro.props;
+const { a11y } = site.copy;
+---
+
+<div
+  class="carousel"
+  role="region"
+  aria-roledescription="carousel"
+  aria-label={a11y.servicesCarouselLabel}
+  tabindex="0"
+  data-service-carousel
+>
+  <div class="carousel__viewport" data-carousel-viewport>
+    <ul role="list" class="carousel__container">
+      {services.map((service) => (
+        <li class="carousel__slide">
+          <ServiceCardItem service={service} />
+        </li>
+      ))}
+    </ul>
+  </div>
+  <div class="carousel__controls">
+    <button
+      type="button"
+      class="carousel__button carousel__button--prev"
+      data-carousel-prev
+      aria-label={a11y.servicesCarouselPrev}
+      hidden
+      disabled
+    >
+      <span aria-hidden="true">‹</span>
+    </button>
+    <button
+      type="button"
+      class="carousel__button carousel__button--next"
+      data-carousel-next
+      aria-label={a11y.servicesCarouselNext}
+      hidden
+    >
+      <span aria-hidden="true">›</span>
+    </button>
+  </div>
+</div>
+
+<style>
+  .carousel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    border-radius: var(--radius-sm);
+  }
+
+  .carousel:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 4px;
+  }
+
+  /* No-JS baseline: a native horizontally scrollable, scroll-snapping row. */
+  .carousel__viewport {
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+  }
+
+  /* Once the script below has initialized Embla, it takes over scrolling
+     through its own transform-based dragging instead. */
+  .carousel[data-carousel-ready] .carousel__viewport {
+    overflow: hidden;
+    scroll-snap-type: none;
+  }
+
+  .carousel__container {
+    display: flex;
+    gap: var(--space-md);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* About four cards at the design width (1080px container, three gaps). */
+  .carousel__slide {
+    flex: 0 0 calc((100% - 3 * var(--space-md)) / 4);
+    min-width: 0;
+    scroll-snap-align: start;
+  }
+
+  .carousel__controls {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-sm);
+  }
+
+  .carousel__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--text-md);
+    line-height: 1;
+    cursor: pointer;
+    transition: opacity var(--duration-fast) var(--ease-standard);
+  }
+
+  /* `[hidden]` and `.carousel__button` have equal specificity, and this
+     author rule would otherwise win over the UA stylesheet's `display: none`
+     (later in the cascade), leaving the button laid out off-screen instead
+     of actually hidden before the script reveals it. */
+  .carousel__button[hidden] {
+    display: none;
+  }
+
+  .carousel__button:hover:not(:disabled) {
+    opacity: 0.75;
+  }
+
+  .carousel__button:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .carousel__button:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 900px) {
+    .carousel__viewport,
+    .carousel[data-carousel-ready] .carousel__viewport {
+      overflow: visible;
+      scroll-snap-type: none;
+    }
+
+    .carousel__container {
+      flex-direction: column;
+      gap: var(--space-lg);
+    }
+
+    .carousel__slide {
+      flex: 1 1 auto;
+      width: 100%;
+    }
+  }
+</style>
+
+<script>
+  import { initServiceCarousel } from '../../scripts/service-carousel';
+
+  document.querySelectorAll<HTMLElement>('[data-service-carousel]').forEach((root) => {
+    initServiceCarousel(root);
+  });
+</script>
