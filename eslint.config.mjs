@@ -32,6 +32,12 @@ export default defineConfig(
     // Astro component frontmatter (the `---` script block) runs server-side
     // at build/SSR time, like every other `.ts` module in this project.
     files: ['**/*.astro', '**/*.ts'],
+    // `eslint-plugin-astro` lints an inline `<script>` as a virtual
+    // `*.astro/*.js` / `*.astro/*.ts` file, and the `**/*.ts` pattern above
+    // would otherwise match those virtual paths too (they end in `.ts`),
+    // handing Node globals to code that runs in the browser. Exclude them
+    // here; the block below gives them browser globals instead.
+    ignores: ['**/*.astro/*.ts', '**/*.astro/*.js'],
     languageOptions: {
       globals: {
         ...globals.node,
@@ -56,6 +62,16 @@ export default defineConfig(
       globals: {
         ...globals.browser,
       },
+    },
+    rules: {
+      // `typescript-eslint`'s recommended config turns core `no-undef` off
+      // for every `.ts` file, relying on TypeScript itself to catch
+      // undefined names. That guarantee does not hold for these virtual
+      // browser-script files: `@types/node` declares its globals (`process`,
+      // `Buffer`, `__dirname`, ...) ambiently, so TypeScript resolves them
+      // even though they don't exist in a browser. Re-enable `no-undef`
+      // here so an accidental Node global in client code is still reported.
+      'no-undef': 'error',
     },
   },
   {
