@@ -36,8 +36,11 @@ export default defineConfig(
     // `*.astro/*.js` / `*.astro/*.ts` file, and the `**/*.ts` pattern above
     // would otherwise match those virtual paths too (they end in `.ts`),
     // handing Node globals to code that runs in the browser. Exclude them
-    // here; the block below gives them browser globals instead.
-    ignores: ['**/*.astro/*.ts', '**/*.astro/*.js'],
+    // here; the block below gives them browser globals instead. `src/scripts/**`
+    // is excluded for the same reason: real `.ts` modules imported by those
+    // inline scripts (e.g. `lightbox.ts`) and shipped to the browser, not
+    // server-side code.
+    ignores: ['**/*.astro/*.ts', '**/*.astro/*.js', 'src/scripts/**'],
     languageOptions: {
       globals: {
         ...globals.node,
@@ -55,9 +58,11 @@ export default defineConfig(
   },
   {
     // Inline `<script>` blocks inside `.astro` files are shipped to, and run
-    // in, the browser. `eslint-plugin-astro` lints them as virtual
-    // `*.astro/*.js` / `*.astro/*.ts` files.
-    files: ['**/*.astro/*.js', '**/*.astro/*.ts'],
+    // in, the browser (`eslint-plugin-astro` lints them as virtual
+    // `*.astro/*.js` / `*.astro/*.ts` files); `src/scripts/**/*.ts` holds the
+    // real modules those inline scripts import (e.g. `lightbox.ts`), also
+    // shipped to, and run in, the browser.
+    files: ['**/*.astro/*.js', '**/*.astro/*.ts', 'src/scripts/**/*.ts'],
     languageOptions: {
       globals: {
         ...globals.browser,
@@ -66,11 +71,11 @@ export default defineConfig(
     rules: {
       // `typescript-eslint`'s recommended config turns core `no-undef` off
       // for every `.ts` file, relying on TypeScript itself to catch
-      // undefined names. That guarantee does not hold for these virtual
-      // browser-script files: `@types/node` declares its globals (`process`,
-      // `Buffer`, `__dirname`, ...) ambiently, so TypeScript resolves them
-      // even though they don't exist in a browser. Re-enable `no-undef`
-      // here so an accidental Node global in client code is still reported.
+      // undefined names. That guarantee does not hold for browser code:
+      // `@types/node` declares its globals (`process`, `Buffer`,
+      // `__dirname`, ...) ambiently, so TypeScript resolves them even
+      // though they don't exist in a browser. Re-enable `no-undef` here so
+      // an accidental Node global in client code is still reported.
       'no-undef': 'error',
     },
   },
