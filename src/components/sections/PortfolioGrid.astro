@@ -90,6 +90,7 @@ const { copy } = site;
 
   .portfolio__link {
     display: block;
+    overflow: hidden;
   }
 
   /* Inset so the ring stays visible over a photograph instead of being
@@ -103,6 +104,18 @@ const { copy } = site;
     width: 100%;
     aspect-ratio: 4 / 5;
     object-fit: cover;
+  }
+
+  /* MI-06: restrained hover zoom, hover-capable fine-pointer devices only, disabled under reduced motion; also on keyboard focus. Clipped by `.portfolio__link`'s own `overflow: hidden` above, so it never changes layout. */
+  @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .portfolio :global(.portfolio__image) {
+      transition: transform var(--duration-base) var(--ease-standard);
+    }
+
+    .portfolio__link:hover :global(.portfolio__image),
+    .portfolio__link:focus-visible :global(.portfolio__image) {
+      transform: scale(1.04);
+    }
   }
 </style>
 
