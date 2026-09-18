@@ -21,7 +21,7 @@ importers:
         specifier: ^6.15.0
         version: 6.15.0
       photoswipe:
-        specifier: 5.4.4
+        specifier: ^5.4.4
         version: 5.4.4
     devDependencies:
       '@astrojs/check':
