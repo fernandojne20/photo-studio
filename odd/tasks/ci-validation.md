@@ -53,10 +53,10 @@ User rule (2026-09-18): keep pull requests under 1000 changed lines of reviewabl
 
 ## Tasks
 
-- [ ] CI-01 Toolchain pins and tooling: `.nvmrc`, `packageManager`, ESLint flat config, Prettier config and ignore files, root and Studio scripts. `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm typegen:check`, `pnpm --filter studio lint`, `pnpm --filter studio typecheck` all pass locally, with findings fixed in code.
-- [ ] CI-02 One-time formatting pass (`pnpm format`) in its own commit, no behavior change; regenerate types if the TypeGen output changed.
-- [ ] CI-03 `.github/workflows/ci.yml` with the `lint`, `typecheck`, `build` jobs; `actionlint` passes.
-- [ ] CI-04 README "Checks" section: what runs in CI and how to run it locally.
+- [x] CI-01 Toolchain pins and tooling: `.nvmrc`, `packageManager`, ESLint flat config, Prettier config and ignore files, root and Studio scripts. `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm typegen:check`, `pnpm --filter studio lint`, `pnpm --filter studio typecheck` all pass locally, with findings fixed in code.
+- [x] CI-02 One-time formatting pass (`pnpm format`) in its own commit, no behavior change; regenerate types if the TypeGen output changed.
+- [x] CI-03 `.github/workflows/ci.yml` with the `lint`, `typecheck`, `build` jobs; `actionlint` passes.
+- [x] CI-04 README "Checks" section: what runs in CI and how to run it locally.
 - [ ] CI-05 Verify on GitHub: open the pull request and confirm the three jobs pass on the pull request run.
 
 ## Acceptance criteria
@@ -68,8 +68,11 @@ User rule (2026-09-18): keep pull requests under 1000 changed lines of reviewabl
 
 ## Progress and evidence
 
-(Updated after each task.)
+- 2026-09-18 Delivery adjusted after measuring: the change is about 940 authored and mechanical lines (tooling 205, findings 17, formatter pass 580, workflow and README 136) plus about 360 lines of lockfile and regenerated types, so items 1 to 3 of the planned stack ship as one pull request from `ci/github-actions` with four commits. The tests remain a stacked pull request on top.
+- 2026-09-18 CI-01 to CI-04 done by one delegated writer (Sonnet). Writer evidence: `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm format:check`, `pnpm typecheck` (0 errors), Studio `lint`, `typecheck`, `format:check`, `CONTENT_FALLBACKS=true pnpm build`, `pnpm studio:build` and `actionlint` all exit 0; `pnpm typegen:check` negative test: renaming a projected field in a query makes it exit 1 with the diff, and a stray edit to the generated file is overwritten and passes. Findings fixed in code: `preserve-caught-error` in `src/content/home.ts` (added `{ cause: error }`), a stale `eslint-disable` directive, a real `tsc` error in the Studio preview. One rule disabled with a written reason: `astro/jsx-a11y/no-redundant-roles`, because `global.css` relies on explicit `role="list"` for the Safari/VoiceOver list fix. `eslint-plugin-jsx-a11y-x` works with ESLint 10, so template accessibility rules are on. Upstream bug worked around: `prettier-plugin-astro@1.0.1` re-indents multi-line CSS comments in `.astro` style blocks on every pass without converging; two comments were collapsed to one line.
+- 2026-09-18 Parent changes after readback: `pull_request` has no base-branch filter so stacked pull requests are validated; `pnpm/action-setup` is pinned to commit `ea17c68df8912ef543352723c149a84f56e3d413` (v6.1.0, annotated tag dereferenced), GitHub-owned actions stay on `v7`. Hand fixes were committed separately from formatter output by restoring the three mixed files to `HEAD`, applying only the hand edits, and restoring the writer's final versions for the `style:` commit.
+- 2026-09-18 Native risk assessment: `high` (`shell_source` in the workflow), so an independent read-only verifier re-ran everything: 13 commands exit 0, tree clean; formatting commit sampled in 9 of 21 files with token-level comparison, pure; workflow security reviewed (read-only permissions, no secrets, fork runs have nothing to reach, SHA pin matches a GPG-verified v6.1.0 tag, `node-version-file` and `cache: pnpm` valid for `setup-node@v7`, `packageManager` honored by `action-setup`); ESLint confirmed to parse `.astro` frontmatter and inline scripts with `typescript-eslint`. One should-fix accepted: the Studio preview fix had dropped the whole `prepare()` parameter type, making `alt` and `caption` `any`; now `media` is typed with `PreviewValue['media']` and the other two stay typed, verified with a negative test, and folded into the findings commit.
 
 ## Next step
 
-CI-01 to CI-04 delegated to one writer; CI-05 by the parent after the pull request opens.
+CI-05: open the pull request and confirm the `lint`, `typecheck` and `build` jobs pass on GitHub. Then the stacked tests pull request.
