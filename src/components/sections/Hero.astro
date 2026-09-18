@@ -1,0 +1,127 @@
+---
+import SanityImage from '../SanityImage.astro';
+import Monogram from '../Monogram.astro';
+import WhatsApp from '../icons/WhatsApp.astro';
+import { site, buildWhatsAppUrl } from '../../config/site';
+import { buildSanitySrcSet } from '../../lib/sanity-image';
+import type { HeroContent } from '../../content/types';
+
+interface Props {
+  hero: HeroContent;
+}
+
+const { hero } = Astro.props;
+const { copy } = site;
+const whatsAppUrl = buildWhatsAppUrl(site.whatsapp);
+
+/* Frame ratios from the mockup. Passing them to the builders makes the Sanity
+   CDN crop around the editor's hotspot instead of leaving the browser to
+   center-crop with `object-fit: cover`. */
+const DESKTOP_RATIO = '1366 / 850';
+const MOBILE_RATIO = '393 / 560';
+
+/* Without a dedicated mobile image, the desktop image still gets its own
+   hotspot-aware portrait crop for phones. Placeholders have no Sanity asset,
+   so they only get a mobile source when a mobile placeholder exists. */
+const mobileImage = hero.mobileImage ?? (hero.image.source ? hero.image : undefined);
+const mobileSrcSet = mobileImage
+  ? buildSanitySrcSet(mobileImage, [400, 640, 786], MOBILE_RATIO)
+  : null;
+---
+
+<section id="inicio" class="hero">
+  <h1 class="visually-hidden">{site.name} — {site.tagline}</h1>
+
+  <picture>
+    {
+      mobileSrcSet && (
+        <source
+          media="(max-width: 640px)"
+          srcset={mobileSrcSet.srcset ?? mobileSrcSet.src}
+          sizes="100vw"
+        />
+      )
+    }
+    <SanityImage
+      image={hero.image}
+      widths={[640, 960, 1366, 1600, 1920]}
+      sizes="100vw"
+      aspectRatio={DESKTOP_RATIO}
+      loading="eager"
+      fetchpriority="high"
+      class="hero__image"
+    />
+  </picture>
+
+  <Monogram tone="light" class="hero__monogram" />
+
+  <a class="hero__cta" href={whatsAppUrl} target="_blank" rel="noopener">
+    <WhatsApp class="hero__cta-icon" />
+    <span>{copy.heroCtaLabel}</span>
+  </a>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    aspect-ratio: 1366 / 850;
+  }
+
+  .hero :global(.hero__image) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* Monogram is rendered by a child component, so its scope needs :global().
+     The ancestor-qualified selector also keeps specificity above Monogram's
+     own scoped `.monogram { display: inline-block }` rule. */
+  .hero :global(.hero__monogram) {
+    position: absolute;
+    top: var(--space-2xl);
+    left: 50%;
+    transform: translateX(-50%);
+    width: var(--size-monogram-hero);
+  }
+
+  .hero__cta {
+    position: absolute;
+    left: 50%;
+    bottom: var(--space-2xl);
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2xs);
+    padding: var(--space-xs) var(--space-md);
+    border-radius: var(--radius-pill);
+    background: rgb(255 255 255 / 85%);
+    color: var(--color-text);
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-heading);
+    text-transform: uppercase;
+    transition: opacity var(--duration-fast) var(--ease-standard);
+  }
+
+  .hero__cta:hover {
+    opacity: 0.85;
+  }
+
+  /* The header's mobile brand text already carries the identity, so the
+     overlaid monogram is redundant below the header's own breakpoint. */
+  @media (max-width: 900px) {
+    .hero :global(.hero__monogram) {
+      display: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .hero {
+      aspect-ratio: 393 / 560;
+    }
+
+    .hero__cta {
+      bottom: var(--space-xl);
+    }
+  }
+</style>

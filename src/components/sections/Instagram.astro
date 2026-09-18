@@ -1,0 +1,57 @@
+---
+import InstagramIcon from '../icons/Instagram.astro';
+import { site } from '../../config/site';
+
+const { copy } = site;
+const { a11y } = copy;
+---
+
+<section id="instagram" class="instagram container">
+  <h2 class="instagram__heading">{copy.instagramHeading}</h2>
+  <a
+    class="instagram__link"
+    href={site.instagram.url}
+    target="_blank"
+    rel="noopener"
+    aria-label={a11y.instagram}
+  >
+    <InstagramIcon class="instagram__icon" />
+  </a>
+</section>
+
+<style>
+  /* The footer draws the hairline below this section, as in the mockup. */
+  .instagram {
+    padding-block: var(--space-2xl);
+    text-align: center;
+    border-top: 1px solid var(--color-hairline);
+  }
+
+  /* The mobile mockup has no Instagram block: the footer carries the icons. */
+  @media (max-width: 900px) {
+    .instagram {
+      display: none;
+    }
+  }
+
+  .instagram__heading {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: var(--text-md);
+    letter-spacing: var(--tracking-heading);
+    text-transform: uppercase;
+    margin-bottom: var(--space-md);
+  }
+
+  /* Icon is sized with `1em`, so the link's font-size controls it. */
+  .instagram__link {
+    display: inline-flex;
+    font-size: 1.75rem;
+    color: var(--color-text);
+    transition: opacity var(--duration-fast) var(--ease-standard);
+  }
+
+  .instagram__link:hover {
+    opacity: 0.75;
+  }
+</style>

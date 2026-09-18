@@ -9,16 +9,6 @@ const { a11y } = site.copy;
 
 <footer class="footer">
   <div class="container footer__inner">
-    <a
-      class="footer__instagram footer__instagram--desktop"
-      href={site.instagram.url}
-      target="_blank"
-      rel="noopener"
-      aria-label={a11y.instagram}
-    >
-      <Instagram class="footer__icon" />
-    </a>
-
     <hr class="footer__rule" />
 
     <p class="footer__line footer__line--desktop">
@@ -46,13 +36,6 @@ const { a11y } = site.copy;
   }
 
   /* Icons are sized with `1em`, so the link's font-size controls them. */
-  .footer__instagram--desktop {
-    display: inline-flex;
-    font-size: 1.5rem;
-    color: var(--color-text);
-    margin-bottom: var(--space-md);
-  }
-
   .footer__rule {
     border: none;
     border-top: 1px solid var(--color-hairline);
@@ -88,7 +71,6 @@ const { a11y } = site.copy;
   }
 
   @media (max-width: 900px) {
-    .footer__instagram--desktop,
     .footer__line--desktop {
       display: none;
     }

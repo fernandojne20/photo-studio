@@ -1,0 +1,179 @@
+---
+import SanityImage from '../SanityImage.astro';
+import Monogram from '../Monogram.astro';
+import PortableTextBody from '../PortableTextBody.astro';
+import { site, buildWhatsAppUrl } from '../../config/site';
+import type { BiographyContent, BiographyCta } from '../../content/types';
+
+interface Props {
+  biography: BiographyContent;
+}
+
+const { biography } = Astro.props;
+
+function resolveCtaHref(cta: BiographyCta): string {
+  switch (cta.target) {
+    case 'whatsapp':
+      return buildWhatsAppUrl(site.whatsapp);
+    case 'contact':
+      return '#contacto';
+    case 'url':
+      return cta.url ?? '#';
+  }
+}
+
+const cta = biography.cta;
+const ctaHref = cta ? resolveCtaHref(cta) : undefined;
+const ctaIsExternal = cta ? cta.target === 'whatsapp' || cta.target === 'url' : false;
+---
+
+<section id="biografia" class="biography">
+  <div class="biography__inner">
+    <Monogram tone="muted" class="biography__monogram" />
+    <p class="biography__script" aria-hidden="true">{site.tagline}</p>
+    <h2 class="biography__name">{site.name}</h2>
+    <PortableTextBody value={biography.body} class="biography__body" />
+    {
+      cta && (
+        <a
+          class="biography__cta"
+          href={ctaHref}
+          target={ctaIsExternal ? '_blank' : undefined}
+          rel={ctaIsExternal ? 'noopener' : undefined}
+        >
+          {cta.label}
+        </a>
+      )
+    }
+    <div class="biography__portrait">
+      <SanityImage
+        image={biography.portrait}
+        widths={[480, 720, 960, 1200, 1600]}
+        sizes="(max-width: 900px) 100vw, 50vw"
+        aspectRatio="3 / 4"
+        loading="lazy"
+        class="biography__portrait-image"
+      />
+    </div>
+  </div>
+</section>
+
+<style>
+  .biography {
+    background: var(--color-bg-dark);
+    color: var(--color-text-dark);
+  }
+
+  .biography__inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    column-gap: var(--space-xl);
+    padding-block: var(--space-2xl);
+    /* Left edge aligns with the shared container; the right edge is left
+       unpadded so the portrait can bleed to the true viewport edge. */
+    padding-inline-start: max(var(--container-padding), calc((100% - var(--container-width)) / 2));
+    grid-template-areas:
+      'monogram portrait'
+      'tagline  portrait'
+      'name     portrait'
+      'body     portrait'
+      'cta      portrait';
+  }
+
+  :global(.biography__monogram) {
+    grid-area: monogram;
+    margin-bottom: var(--space-sm);
+  }
+
+  .biography__script {
+    grid-area: tagline;
+    font-family: var(--font-script);
+    /* One line at the design width, as in the mockup. */
+    font-size: var(--text-md);
+    color: var(--color-heading-dark);
+    margin-bottom: var(--space-sm);
+  }
+
+  .biography__name {
+    grid-area: name;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: var(--text-md);
+    letter-spacing: var(--tracking-heading);
+    text-transform: uppercase;
+    color: var(--color-heading-dark);
+    margin-bottom: var(--space-lg);
+  }
+
+  .biography :global(.biography__body) {
+    grid-area: body;
+  }
+
+  .biography__cta {
+    grid-area: cta;
+    justify-self: start;
+    margin-top: var(--space-md);
+    padding: var(--space-xs) var(--space-lg);
+    border: 1px solid var(--color-text-dark);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-serif);
+    font-size: var(--text-base);
+    color: var(--color-heading-dark);
+    transition:
+      opacity var(--duration-fast) var(--ease-standard),
+      outline-color var(--duration-fast) var(--ease-standard);
+  }
+
+  .biography__cta:hover {
+    opacity: 0.8;
+  }
+
+  /* The default focus ring is too dark to read against this section's
+     near-black background, so it is swapped for a light token here. */
+  .biography__cta:focus-visible {
+    outline-color: var(--color-heading-dark);
+  }
+
+  .biography__portrait {
+    grid-area: portrait;
+    height: 100%;
+  }
+
+  .biography :global(.biography__portrait-image) {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+  }
+
+  @media (max-width: 900px) {
+    .biography__inner {
+      grid-template-columns: 1fr;
+      justify-items: center;
+      text-align: center;
+      padding-inline: var(--container-padding);
+      grid-template-areas:
+        'monogram'
+        'tagline'
+        'portrait'
+        'name'
+        'body'
+        'cta';
+    }
+
+    .biography__cta {
+      justify-self: center;
+    }
+
+    .biography__portrait {
+      width: 100%;
+      height: auto;
+      margin-block: var(--space-md);
+    }
+
+    .biography :global(.biography__portrait-image) {
+      height: auto;
+    }
+  }
+</style>

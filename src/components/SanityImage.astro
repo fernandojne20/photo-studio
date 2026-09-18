@@ -1,0 +1,46 @@
+---
+import { buildSanitySrcSet } from '../lib/sanity-image';
+import type { CmsImage } from '../content/types';
+
+interface Props {
+  image: CmsImage;
+  widths: number[];
+  sizes: string;
+  /** CSS `aspect-ratio` value, e.g. `"4 / 5"`. Requests a hotspot-aware crop. */
+  aspectRatio?: string;
+  loading?: 'eager' | 'lazy';
+  fetchpriority?: 'high' | 'low' | 'auto';
+  class?: string;
+}
+
+const {
+  image,
+  widths,
+  sizes,
+  aspectRatio,
+  loading = 'lazy',
+  fetchpriority,
+  class: className,
+} = Astro.props;
+
+const { src, srcset, width, height } = buildSanitySrcSet(image, widths, aspectRatio);
+
+const lqipStyle =
+  image.source && image.lqip
+    ? `background-image:url(${image.lqip});background-size:cover;background-position:center;`
+    : undefined;
+---
+
+<img
+  class={className}
+  src={src}
+  srcset={srcset}
+  sizes={srcset ? sizes : undefined}
+  alt={image.alt}
+  width={width}
+  height={height}
+  loading={loading}
+  decoding="async"
+  fetchpriority={fetchpriority}
+  style={lqipStyle}
+/>

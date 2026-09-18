@@ -1,0 +1,39 @@
+---
+import { site } from '../../config/site';
+
+const { copy } = site;
+---
+
+<section id="bienvenidos" class="welcome container">
+  <h2 class="welcome__heading">{copy.welcomeHeading}</h2>
+  <p class="welcome__paragraph">{copy.welcomeParagraphs[0]}</p>
+  <p class="welcome__paragraph">{copy.welcomeParagraphs[1]}</p>
+</section>
+
+<style>
+  .welcome {
+    padding-block: var(--space-2xl) var(--space-lg);
+    text-align: center;
+  }
+
+  .welcome__heading {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: var(--text-md);
+    letter-spacing: var(--tracking-heading);
+    text-transform: uppercase;
+    color: var(--color-text);
+    margin-bottom: var(--space-lg);
+  }
+
+  .welcome__paragraph {
+    max-width: 62ch;
+    margin-inline: auto;
+    margin-bottom: var(--space-md);
+    color: var(--color-text-muted);
+  }
+
+  .welcome__paragraph:last-child {
+    margin-bottom: 0;
+  }
+</style>

@@ -85,6 +85,10 @@
   --duration-base: 250ms;
   --duration-slow: 450ms;
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* "lh" monogram width, measured from the mockup (hero vs. biography). */
+  --size-monogram-hero: 120px;
+  --size-monogram-bio: 110px;
 }
 
 @media (prefers-reduced-motion: reduce) {

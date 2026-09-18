@@ -73,6 +73,7 @@ export interface AccessibilityLabels {
   whatsapp: string;
   instagram: string;
   goHome: string;
+  skipToContent: string;
 }
 
 export interface SiteCopy {
@@ -184,6 +185,7 @@ export const site: SiteConfig = {
       whatsapp: 'WhatsApp',
       instagram: 'Instagram',
       goHome: 'Ir al inicio',
+      skipToContent: 'Saltar al contenido',
     },
   },
 };
