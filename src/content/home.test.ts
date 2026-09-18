@@ -23,7 +23,7 @@ vi.mock('../sanity/client', () => ({
   sanityClient: { fetch: fetchMock },
 }));
 
-import { getHomeContent } from './home';
+import { getHomeContent, resolveFallbackPolicy } from './home';
 
 type HomePageDoc = NonNullable<HOME_PAGE_QUERY_RESULT>;
 type RawImage = NonNullable<PORTFOLIO_IMAGES_QUERY_RESULT[number]['image']>;
@@ -291,23 +291,66 @@ describe('getHomeContent fallback policy', () => {
     );
   });
 
-  it('allows fallbacks through CONTENT_FALLBACKS=true when no explicit option is given', async () => {
-    vi.stubEnv('CONTENT_FALLBACKS', 'true');
-    mockFetchRejecting(new Error('network down'));
+  // There used to be an integration test here asserting that
+  // `getHomeContent()` (no explicit `fallbacks` option) allows fallbacks
+  // when `CONTENT_FALLBACKS=true` is stubbed. That test was tautological:
+  // Vitest's `environment: 'node'` runs with `import.meta.env.DEV === true`
+  // by default, so `resolveAllowFallbacks`'s `dev || flag === 'true'`
+  // already returns `true` from `dev` alone — the test passed even with the
+  // `flag === 'true'` check deleted entirely.
+  //
+  // Verified attempt to make it real: `vi.stubEnv('DEV', false)` does patch
+  // `import.meta.env.DEV` as read directly in *this* test file (a
+  // `console.log(import.meta.env.DEV)` right after the stub printed
+  // `false`), but it does not change what `../content/home.ts` reads: with
+  // the stub applied, no `fallbacks` option, and the Sanity fetch mocked to
+  // reject, `getHomeContent()` still resolved with placeholder content
+  // instead of throwing — i.e. `resolveAllowFallbacks`'s own `dev` read
+  // stayed `true` regardless of the stub in the test file. So the
+  // dev-default branch of the env reader cannot be isolated at the
+  // `getHomeContent()` level with this Vitest version. It is exercised
+  // instead, without any stubbing, by the `resolveFallbackPolicy` truth
+  // table below (`describe('resolveFallbackPolicy', ...)`), which tests the
+  // decision rule directly as a pure function.
+});
 
-    const result = await getHomeContent();
-
-    expect(result.meta.sources.hero).toBe('placeholder');
-    expect(result.meta.warnings).toHaveLength(1);
+describe('resolveFallbackPolicy', () => {
+  it('option "allow" overrides dev and flag in every combination', () => {
+    expect(resolveFallbackPolicy({ option: 'allow', dev: false })).toBe(true);
+    expect(resolveFallbackPolicy({ option: 'allow', dev: false, flag: 'false' })).toBe(true);
+    expect(resolveFallbackPolicy({ option: 'allow', dev: false, flag: 'true' })).toBe(true);
+    expect(resolveFallbackPolicy({ option: 'allow', dev: true })).toBe(true);
+    expect(resolveFallbackPolicy({ option: 'allow', dev: true, flag: 'false' })).toBe(true);
+    expect(resolveFallbackPolicy({ option: 'allow', dev: true, flag: 'true' })).toBe(true);
   });
 
-  // Vitest defaults `import.meta.env.DEV` to true, which already allows
-  // fallbacks on its own, so a "default denies fallbacks outside dev" case
-  // cannot be isolated from the CONTENT_FALLBACKS switch above by stubbing
-  // env vars: `vi.stubEnv('DEV', ...)` only patches `process.env.DEV`, and
-  // `import.meta.env.DEV` is a separate Vite-managed boolean that Vitest
-  // does not expose a supported way to override per test. The
-  // fallbacks-denied code path this would exercise is already covered by
-  // the explicit `fallbacks: 'deny'` tests above, which take the same
-  // `!allowFallbacks` branch in `getHomeContent`.
+  it('option "deny" overrides dev and flag in every combination', () => {
+    expect(resolveFallbackPolicy({ option: 'deny', dev: false })).toBe(false);
+    expect(resolveFallbackPolicy({ option: 'deny', dev: false, flag: 'false' })).toBe(false);
+    expect(resolveFallbackPolicy({ option: 'deny', dev: false, flag: 'true' })).toBe(false);
+    expect(resolveFallbackPolicy({ option: 'deny', dev: true })).toBe(false);
+    expect(resolveFallbackPolicy({ option: 'deny', dev: true, flag: 'false' })).toBe(false);
+    expect(resolveFallbackPolicy({ option: 'deny', dev: true, flag: 'true' })).toBe(false);
+  });
+
+  it('denies with no option, dev false, and no flag', () => {
+    expect(resolveFallbackPolicy({ dev: false })).toBe(false);
+  });
+
+  it('allows with no option, dev false, and flag exactly "true"', () => {
+    expect(resolveFallbackPolicy({ dev: false, flag: 'true' })).toBe(true);
+  });
+
+  it.each(['false', 'TRUE', '1', ''])(
+    'denies with no option, dev false, and flag %j (the rule requires an exact "true" match)',
+    (flag) => {
+      expect(resolveFallbackPolicy({ dev: false, flag })).toBe(false);
+    },
+  );
+
+  it('allows with dev true, with or without the flag', () => {
+    expect(resolveFallbackPolicy({ dev: true })).toBe(true);
+    expect(resolveFallbackPolicy({ dev: true, flag: 'false' })).toBe(true);
+    expect(resolveFallbackPolicy({ dev: true, flag: 'true' })).toBe(true);
+  });
 });
