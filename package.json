@@ -21,7 +21,9 @@
     "format:check": "prettier --check .",
     "typecheck": "astro check",
     "typegen:check": "pnpm typegen && git diff --exit-code -- src/sanity/sanity.types.ts",
-    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm typegen:check && pnpm build && pnpm --filter studio lint && pnpm --filter studio typecheck && pnpm --filter studio build"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm typegen:check && pnpm build && pnpm --filter studio lint && pnpm --filter studio typecheck && pnpm --filter studio build"
   },
   "dependencies": {
     "@sanity/client": "^8.6.2",
@@ -47,6 +49,7 @@
     "prettier-plugin-astro": "^1.0.1",
     "tsx": "^4.19.2",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.70.0"
+    "typescript-eslint": "^8.70.0",
+    "vitest": "^5.0.1"
   }
 }
