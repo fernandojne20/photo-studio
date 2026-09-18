@@ -49,6 +49,7 @@ export const portfolioPlaceholders: PortfolioPlaceholder[] = [
     alt: 'Fotografía de portafolio de referencia 1.',
     width: 480,
     height: 600,
+    caption: 'Sesión en exteriores',
   },
   {
     src: 'https://picsum.photos/seed/lh-p2/480/600',
