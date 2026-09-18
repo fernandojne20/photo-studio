@@ -399,3 +399,11 @@ const contactMessages = {
     }
   }
 </style>
+
+<script>
+  import { initContactForm } from '../../scripts/contact-form';
+
+  document.querySelectorAll<HTMLFormElement>('[data-contact-form]').forEach((form) => {
+    initContactForm(form);
+  });
+</script>
