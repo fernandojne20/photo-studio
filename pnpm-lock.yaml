@@ -18,7 +18,7 @@ importers:
         specifier: ^7.3.3
         version: 7.3.3(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@types/node@24.13.5)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1)
       embla-carousel:
-        specifier: 8.6.0
+        specifier: ^8.6.0
         version: 8.6.0
       groq:
         specifier: ^6.15.0
