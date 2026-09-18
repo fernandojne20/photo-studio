@@ -20,6 +20,18 @@ const WORD_JOINER = String.fromCodePoint(0x2060);
 const LEFT_TO_RIGHT_ISOLATE = String.fromCodePoint(0x2066);
 const POP_DIRECTIONAL_ISOLATE = String.fromCodePoint(0x2069);
 const BOM = String.fromCodePoint(0xfeff);
+const SOFT_HYPHEN = String.fromCodePoint(0xad);
+const ARABIC_SEMICOLON = String.fromCodePoint(0x61b); // visible neighbour of U+061C
+const ARABIC_LETTER_MARK = String.fromCodePoint(0x61c);
+const ARABIC_GREETING = String.fromCodePoint(0x645, 0x631, 0x62d, 0x628, 0x627);
+const MONGOLIAN_VOWEL_SEPARATOR = String.fromCodePoint(0x180e);
+const MEDIUM_MATHEMATICAL_SPACE = String.fromCodePoint(0x205f); // just below the U+2060 block
+const INHIBIT_SYMMETRIC_SWAPPING = String.fromCodePoint(0x206a);
+const NOMINAL_DIGIT_SHAPES = String.fromCodePoint(0x206f);
+const SUPERSCRIPT_ZERO = String.fromCodePoint(0x2070); // just above the U+2060 block
+const INTERLINEAR_ANNOTATION_ANCHOR = String.fromCodePoint(0xfff9);
+const INTERLINEAR_ANNOTATION_TERMINATOR = String.fromCodePoint(0xfffb);
+const REPLACEMENT_CHARACTER = String.fromCodePoint(0xfffd); // visible, above the annotation controls
 const MAN = String.fromCodePoint(0x1f468);
 const WOMAN = String.fromCodePoint(0x1f469);
 const GIRL = String.fromCodePoint(0x1f467);
@@ -52,6 +64,44 @@ describe('stripUnsafeCharacters — single-line mode (keepNewlines: false)', () 
     ['LEFT-TO-RIGHT ISOLATE (U+2066) is removed', `a${LEFT_TO_RIGHT_ISOLATE}b`, 'ab'],
     ['POP DIRECTIONAL ISOLATE (U+2069) is removed', `a${POP_DIRECTIONAL_ISOLATE}b`, 'ab'],
     ['the BOM (U+FEFF) is removed', `a${BOM}b`, 'ab'],
+    ['SOFT HYPHEN (U+00AD) is removed', `a${SOFT_HYPHEN}b`, 'ab'],
+    ['ARABIC LETTER MARK (U+061C) is removed', `a${ARABIC_LETTER_MARK}b`, 'ab'],
+    [
+      'ARABIC LETTER MARK is removed without touching the Arabic text around it',
+      `${ARABIC_GREETING}${ARABIC_LETTER_MARK}${ARABIC_SEMICOLON}`,
+      `${ARABIC_GREETING}${ARABIC_SEMICOLON}`,
+    ],
+    ['MONGOLIAN VOWEL SEPARATOR (U+180E) is removed', `a${MONGOLIAN_VOWEL_SEPARATOR}b`, 'ab'],
+    [
+      'INHIBIT SYMMETRIC SWAPPING (U+206A, deprecated format control) is removed',
+      `a${INHIBIT_SYMMETRIC_SWAPPING}b`,
+      'ab',
+    ],
+    [
+      'NOMINAL DIGIT SHAPES (U+206F, deprecated format control) is removed',
+      `a${NOMINAL_DIGIT_SHAPES}b`,
+      'ab',
+    ],
+    [
+      'the neighbours of the U+2060..U+206F block are kept',
+      `a${MEDIUM_MATHEMATICAL_SPACE}b${SUPERSCRIPT_ZERO}`,
+      `a${MEDIUM_MATHEMATICAL_SPACE}b${SUPERSCRIPT_ZERO}`,
+    ],
+    [
+      'INTERLINEAR ANNOTATION ANCHOR (U+FFF9) is removed',
+      `a${INTERLINEAR_ANNOTATION_ANCHOR}b`,
+      'ab',
+    ],
+    [
+      'INTERLINEAR ANNOTATION TERMINATOR (U+FFFB) is removed',
+      `a${INTERLINEAR_ANNOTATION_TERMINATOR}b`,
+      'ab',
+    ],
+    [
+      'the visible REPLACEMENT CHARACTER (U+FFFD) is kept',
+      `a${REPLACEMENT_CHARACTER}b`,
+      `a${REPLACEMENT_CHARACTER}b`,
+    ],
   ])('%s', (_description, input, expected) => {
     expect(stripUnsafeCharacters(input, { keepNewlines: false })).toBe(expected);
   });
@@ -75,6 +125,14 @@ describe('stripUnsafeCharacters — message mode (keepNewlines: true)', () => {
       'ab',
     ],
     ['the BOM (U+FEFF) is still removed', `a${BOM}b`, 'ab'],
+    ['ARABIC LETTER MARK (U+061C) is still removed', `a${ARABIC_LETTER_MARK}b`, 'ab'],
+    ['SOFT HYPHEN (U+00AD) is still removed', `a${SOFT_HYPHEN}b`, 'ab'],
+    ['NOMINAL DIGIT SHAPES (U+206F) is still removed', `a${NOMINAL_DIGIT_SHAPES}b`, 'ab'],
+    [
+      'INTERLINEAR ANNOTATION ANCHOR (U+FFF9) is still removed',
+      `a${INTERLINEAR_ANNOTATION_ANCHOR}b`,
+      'ab',
+    ],
   ])('%s', (_description, input, expected) => {
     expect(stripUnsafeCharacters(input, { keepNewlines: true })).toBe(expected);
   });
