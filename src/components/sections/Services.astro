@@ -11,34 +11,31 @@ const { services } = Astro.props;
 const { copy } = site;
 ---
 
-{
-  services.length > 0 && (
-    <section id="servicios" class="services container">
-      <h2 class="visually-hidden">{copy.servicesHeading}</h2>
-      <ul role="list" class="services__grid">
-        {services.map((service) => (
-          <li class="services__card">
-            <SanityImage
-              image={service.image}
-              widths={[300, 600, 900]}
-              sizes="(max-width: 900px) 100vw, 25vw"
-              aspectRatio="1 / 1"
-              loading="lazy"
-              class="services__image"
-            />
-            <span class="services__label">{service.title}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  )
-}
+{services.length > 0 && (
+  <section id="servicios" class="services container">
+    <h2 class="visually-hidden">{copy.servicesHeading}</h2>
+    <ul role="list" class="services__grid">
+      {services.map((service) => (
+        <li class="services__card">
+          <SanityImage
+            image={service.image}
+            widths={[300, 600, 900]}
+            sizes="(max-width: 900px) 100vw, 25vw"
+            aspectRatio="1 / 1"
+            loading="lazy"
+            class="services__image"
+          />
+          <span class="services__label">{service.title}</span>
+        </li>
+      ))}
+    </ul>
+  </section>
+)}
 
 <style>
   .services {
     padding-block: var(--space-2xl);
-    /* This is the single hairline between the card row and Contact; Contact
-       does not draw its own top rule, to avoid doubling the line. */
+    /* This is the single hairline between the card row and Contact; Contact does not draw its own top rule, to avoid doubling the line. */
     border-bottom: 1px solid var(--color-hairline);
   }
 

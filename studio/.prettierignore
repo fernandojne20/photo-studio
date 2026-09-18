@@ -1,0 +1,4 @@
+dist
+.sanity
+schema.json
+node_modules

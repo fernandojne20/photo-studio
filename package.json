@@ -5,6 +5,7 @@
   "engines": {
     "node": ">=22.12.0"
   },
+  "packageManager": "pnpm@10.30.3",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
@@ -13,7 +14,14 @@
     "studio:dev": "pnpm --filter studio dev",
     "studio:build": "pnpm --filter studio build",
     "typegen": "pnpm --filter studio typegen",
-    "content:check": "node --env-file=.env --import tsx scripts/print-home-content.ts"
+    "content:check": "node --env-file=.env --import tsx scripts/print-home-content.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "astro check",
+    "typegen:check": "pnpm typegen && git diff --exit-code -- src/sanity/sanity.types.ts",
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm typegen:check && pnpm build && pnpm --filter studio lint && pnpm --filter studio typecheck && pnpm --filter studio build"
   },
   "dependencies": {
     "@sanity/client": "^8.6.2",
@@ -26,10 +34,19 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@eslint/js": "^10.0.1",
     "@portabletext/types": "^4.0.2",
     "@types/node": "^24.0.0",
+    "astro-eslint-parser": "^3.1.0",
     "astro-portabletext": "^1.0.1",
+    "eslint": "^10.10.0",
+    "eslint-plugin-astro": "^3.2.1",
+    "eslint-plugin-jsx-a11y-x": "^0.2.0",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.8",
+    "prettier-plugin-astro": "^1.0.1",
     "tsx": "^4.19.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.0"
   }
 }

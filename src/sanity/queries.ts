@@ -1,4 +1,4 @@
-import {defineQuery} from 'groq'
+import { defineQuery } from 'groq';
 
 /**
  * Shared image projection: the asset reference resolved to its URL and
@@ -21,7 +21,7 @@ const imageProjection = /* groq */ `{
   alt,
   hotspot,
   crop
-}`
+}`;
 
 export const HOME_PAGE_QUERY = defineQuery(/* groq */ `
   *[_id == "homePage"][0]{
@@ -39,7 +39,7 @@ export const HOME_PAGE_QUERY = defineQuery(/* groq */ `
       }
     }
   }
-`)
+`);
 
 export const PORTFOLIO_IMAGES_QUERY = defineQuery(/* groq */ `
   *[_type == "portfolioImage" && visible == true] | order(orderRank asc){
@@ -52,7 +52,7 @@ export const PORTFOLIO_IMAGES_QUERY = defineQuery(/* groq */ `
       "slug": slug.current
     }
   }
-`)
+`);
 
 export const SERVICE_CATEGORIES_QUERY = defineQuery(/* groq */ `
   *[_type == "serviceCategory" && visible == true] | order(orderRank asc){
@@ -61,4 +61,4 @@ export const SERVICE_CATEGORIES_QUERY = defineQuery(/* groq */ `
     "slug": slug.current,
     image${imageProjection}
   }
-`)
+`);

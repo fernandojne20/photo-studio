@@ -1,5 +1,5 @@
-import {createClient} from '@sanity/client'
-import {apiVersion, dataset, projectId} from './env'
+import { createClient } from '@sanity/client';
+import { apiVersion, dataset, projectId } from './env';
 
 /**
  * Server-side client for the static build. The dataset is public, `useCdn`
@@ -13,4 +13,4 @@ export const sanityClient = createClient({
   apiVersion,
   useCdn: false,
   perspective: 'published',
-})
+});

@@ -1,0 +1,11 @@
+dist
+.astro
+node_modules
+pnpm-lock.yaml
+studio
+tmp
+.playwright-mcp
+.atl
+src/sanity/sanity.types.ts
+src/assets/fonts
+public

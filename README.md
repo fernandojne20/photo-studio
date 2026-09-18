@@ -1,43 +1,50 @@
-# Astro Starter Kit: Minimal
+# Photo Studio
+
+A Spanish-language photography studio website built with Astro and content managed through a Sanity Studio. The site renders a single-page homepage (hero, biography, portfolio, services, contact) from content fetched from Sanity, with development and CI-time fallbacks to local placeholder imagery when the Sanity dataset is unavailable or incomplete.
+
+## Requirements
+
+- Node 24 (see `.nvmrc`)
+- pnpm 10 (see the `packageManager` field in `package.json`)
+
+## Setup
 
 ```sh
-pnpm create astro@latest -- --template minimal
+pnpm install
+cp .env.example .env
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+Fill in `.env` with the Sanity project configuration (see `.env.example` for the required variables).
 
-## 🚀 Project Structure
+## Scripts
 
-Inside of your Astro project, you'll see the following folders and files:
+| Command              | Action                                                      |
+| -------------------- | ----------------------------------------------------------- |
+| `pnpm dev`           | Start the Astro dev server                                  |
+| `pnpm build`         | Build the production site to `./dist/`                      |
+| `pnpm studio:dev`    | Start the Sanity Studio dev server                          |
+| `pnpm typegen`       | Regenerate Sanity schema and query types                    |
+| `pnpm content:check` | Fetch live content and report which sections used fallbacks |
 
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
+## Checks
+
+Every pull request and every push to `main` runs the following in GitHub Actions (`.github/workflows/ci.yml`):
+
+- **lint**: `pnpm lint`, `pnpm format:check`, `pnpm --filter studio lint`, `pnpm --filter studio format:check`
+- **typecheck**: `pnpm typecheck`, `pnpm --filter studio typecheck`, `pnpm typegen:check`
+- **build**: `pnpm build` (with `CONTENT_FALLBACKS=true`, so an editor's content change or a Sanity outage cannot fail the build) and `pnpm studio:build`
+
+Run the same checks locally with:
+
+```sh
+pnpm check
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+which runs lint, format check, typecheck, the generated-types drift check, and both the site and Studio production builds, in order, failing fast.
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+## Repository layout
 
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `pnpm install`             | Installs dependencies                            |
-| `pnpm dev`             | Starts local dev server at `localhost:4321`      |
-| `pnpm build`           | Build your production site to `./dist/`          |
-| `pnpm preview`         | Preview your build locally, before deploying     |
-| `pnpm astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `pnpm astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+- `src/` — the Astro site: pages, layouts, components, content mapping, and the Sanity client
+- `studio/` — the Sanity Studio: schema types, structure, and Studio configuration
+- `odd/tasks/` — feature task documents tracking scope, decisions, and progress
+- `docs/` — project intent and reference documentation

@@ -1,9 +1,9 @@
-import type {PortableTextBlock} from '@portabletext/types'
+import type { PortableTextBlock } from '@portabletext/types';
 import type {
   HOME_PAGE_QUERY_RESULT,
   PORTFOLIO_IMAGES_QUERY_RESULT,
   SERVICE_CATEGORIES_QUERY_RESULT,
-} from '../sanity/sanity.types'
+} from '../sanity/sanity.types';
 import type {
   BiographyContent,
   BiographyCta,
@@ -12,7 +12,7 @@ import type {
   PortfolioCategory,
   PortfolioItem,
   ServiceCard,
-} from './types'
+} from './types';
 
 /**
  * Maps Sanity query results (typed from `../sanity/sanity.types.ts`) into the
@@ -20,20 +20,20 @@ import type {
  * policy and the shape translation stay independently readable.
  */
 
-type HomePageDoc = NonNullable<HOME_PAGE_QUERY_RESULT>
-type RawHero = HomePageDoc['hero']
-type RawBiography = HomePageDoc['biography']
-type RawCta = NonNullable<RawBiography>['cta']
-type RawImage = NonNullable<PORTFOLIO_IMAGES_QUERY_RESULT[number]['image']>
-type RawBlock = NonNullable<RawBiography>['body'][number]
+type HomePageDoc = NonNullable<HOME_PAGE_QUERY_RESULT>;
+type RawHero = HomePageDoc['hero'];
+type RawBiography = HomePageDoc['biography'];
+type RawCta = NonNullable<RawBiography>['cta'];
+type RawImage = NonNullable<PORTFOLIO_IMAGES_QUERY_RESULT[number]['image']>;
+type RawBlock = NonNullable<RawBiography>['body'][number];
 
 function mapImage(raw: RawImage): CmsImage {
-  const dimensions = raw.asset?.metadata?.dimensions
+  const dimensions = raw.asset?.metadata?.dimensions;
 
   return {
     source: raw.asset
       ? {
-          asset: {_id: raw.asset._id, url: raw.asset.url},
+          asset: { _id: raw.asset._id, url: raw.asset.url },
           hotspot: raw.hotspot ?? undefined,
           crop: raw.crop ?? undefined,
         }
@@ -45,7 +45,7 @@ function mapImage(raw: RawImage): CmsImage {
     width: dimensions?.width ?? 0,
     height: dimensions?.height ?? 0,
     lqip: raw.asset?.metadata?.lqip ?? undefined,
-  }
+  };
 }
 
 function mapBlock(block: RawBlock): PortableTextBlock {
@@ -62,50 +62,48 @@ function mapBlock(block: RawBlock): PortableTextBlock {
     // Annotations are disabled on this field (see `home-page.ts`), so there
     // are never mark definitions to carry over.
     markDefs: [],
-  }
+  };
 }
 
 function mapCta(raw: RawCta): BiographyCta | undefined {
-  if (!raw?.label || !raw.target) return undefined
+  if (!raw?.label || !raw.target) return undefined;
   return {
     label: raw.label,
     target: raw.target,
     url: raw.url ?? undefined,
-  }
+  };
 }
 
 export function mapHero(raw: RawHero): HeroContent | null {
-  if (!raw) return null
+  if (!raw) return null;
   return {
     image: mapImage(raw.image),
     mobileImage: raw.mobileImage ? mapImage(raw.mobileImage) : undefined,
-  }
+  };
 }
 
 export function mapBiography(raw: RawBiography): BiographyContent | null {
-  if (!raw) return null
+  if (!raw) return null;
   return {
     portrait: mapImage(raw.portrait),
     body: raw.body.map(mapBlock),
     cta: mapCta(raw.cta),
-  }
+  };
 }
 
-export function mapPortfolioItem(
-  raw: PORTFOLIO_IMAGES_QUERY_RESULT[number],
-): PortfolioItem {
+export function mapPortfolioItem(raw: PORTFOLIO_IMAGES_QUERY_RESULT[number]): PortfolioItem {
   const categories: PortfolioCategory[] = (raw.categories ?? []).map((category) => ({
     id: category._id,
     title: category.title,
     slug: category.slug,
-  }))
+  }));
 
   return {
     id: raw._id,
     image: mapImage(raw.image),
     caption: raw.caption ?? undefined,
     categories,
-  }
+  };
 }
 
 export function mapServiceCard(raw: SERVICE_CATEGORIES_QUERY_RESULT[number]): ServiceCard {
@@ -114,5 +112,5 @@ export function mapServiceCard(raw: SERVICE_CATEGORIES_QUERY_RESULT[number]): Se
     title: raw.title,
     slug: raw.slug,
     image: mapImage(raw.image),
-  }
+  };
 }

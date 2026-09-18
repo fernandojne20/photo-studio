@@ -67,9 +67,7 @@ export const homePage = defineType({
             }),
           ],
           validation: (Rule) =>
-            Rule.required()
-              .min(1)
-              .error('Escribí al menos un párrafo para la biografía.'),
+            Rule.required().min(1).error('Escribí al menos un párrafo para la biografía.'),
         }),
         defineField({
           name: 'cta',

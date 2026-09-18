@@ -11,27 +11,25 @@ const { items } = Astro.props;
 const { copy } = site;
 ---
 
-{
-  items.length > 0 && (
-    <section id="momentos" class="portfolio">
-      <h2 class="portfolio__heading">{copy.portfolioHeading}</h2>
-      <ul role="list" class="portfolio__grid">
-        {items.map((item) => (
-          <li class="portfolio__item">
-            <SanityImage
-              image={item.image}
-              widths={[320, 480, 640, 960, 1280]}
-              sizes="33vw"
-              aspectRatio="4 / 5"
-              loading="lazy"
-              class="portfolio__image"
-            />
-          </li>
-        ))}
-      </ul>
-    </section>
-  )
-}
+{items.length > 0 && (
+  <section id="momentos" class="portfolio">
+    <h2 class="portfolio__heading">{copy.portfolioHeading}</h2>
+    <ul role="list" class="portfolio__grid">
+      {items.map((item) => (
+        <li class="portfolio__item">
+          <SanityImage
+            image={item.image}
+            widths={[320, 480, 640, 960, 1280]}
+            sizes="33vw"
+            aspectRatio="4 / 5"
+            loading="lazy"
+            class="portfolio__image"
+          />
+        </li>
+      ))}
+    </ul>
+  </section>
+)}
 
 <style>
   .portfolio {

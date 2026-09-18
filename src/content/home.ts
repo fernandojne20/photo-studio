@@ -1,18 +1,22 @@
-import {site} from '../config/site'
+import { site } from '../config/site';
 import {
   biographyPortraitPlaceholder,
   heroPlaceholder,
   portfolioPlaceholders,
   servicePlaceholders,
-} from '../data/placeholders'
-import {sanityClient} from '../sanity/client'
-import {HOME_PAGE_QUERY, PORTFOLIO_IMAGES_QUERY, SERVICE_CATEGORIES_QUERY} from '../sanity/queries'
+} from '../data/placeholders';
+import { sanityClient } from '../sanity/client';
+import {
+  HOME_PAGE_QUERY,
+  PORTFOLIO_IMAGES_QUERY,
+  SERVICE_CATEGORIES_QUERY,
+} from '../sanity/queries';
 import type {
   HOME_PAGE_QUERY_RESULT,
   PORTFOLIO_IMAGES_QUERY_RESULT,
   SERVICE_CATEGORIES_QUERY_RESULT,
-} from '../sanity/sanity.types'
-import {mapBiography, mapHero, mapPortfolioItem, mapServiceCard} from './mappers'
+} from '../sanity/sanity.types';
+import { mapBiography, mapHero, mapPortfolioItem, mapServiceCard } from './mappers';
 import type {
   BiographyContent,
   CmsImage,
@@ -22,13 +26,13 @@ import type {
   HomeContent,
   PortfolioItem,
   ServiceCard,
-} from './types'
+} from './types';
 
 export interface GetHomeContentOptions {
-  fallbacks?: 'allow' | 'deny'
+  fallbacks?: 'allow' | 'deny';
 }
 
-const WARNING_PREFIX = '[content]'
+const WARNING_PREFIX = '[content]';
 
 /**
  * Fallback policy (see `odd/tasks/content-management.md`):
@@ -39,41 +43,40 @@ const WARNING_PREFIX = '[content]'
  *   throws; an empty portfolio/services list returns an empty array.
  */
 function resolveAllowFallbacks(options?: GetHomeContentOptions): boolean {
-  if (options?.fallbacks) return options.fallbacks === 'allow'
+  if (options?.fallbacks) return options.fallbacks === 'allow';
 
   const metaEnv =
     typeof import.meta !== 'undefined'
-      ? (import.meta as {env?: Record<string, unknown>}).env
-      : undefined
-  const dev = Boolean(metaEnv?.DEV)
-  const flag = (metaEnv?.CONTENT_FALLBACKS as string | undefined) ?? process.env.CONTENT_FALLBACKS
+      ? (import.meta as { env?: Record<string, unknown> }).env
+      : undefined;
+  const dev = Boolean(metaEnv?.DEV);
+  const flag = (metaEnv?.CONTENT_FALLBACKS as string | undefined) ?? process.env.CONTENT_FALLBACKS;
 
-  return dev || flag === 'true'
+  return dev || flag === 'true';
 }
 
 function warn(message: string): string {
-  const full = `${WARNING_PREFIX} ${message}`
-  // eslint-disable-next-line no-console -- intentional, documented in the fallback policy
-  console.warn(full)
-  return full
+  const full = `${WARNING_PREFIX} ${message}`;
+  console.warn(full);
+  return full;
 }
 
 function placeholderImage(img: {
-  src: string
-  alt: string
-  width: number
-  height: number
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
 }): CmsImage {
   // Placeholders have no Sanity asset, so `source` stays unset; callers must
   // use `url` directly instead of `urlFor()` for these images.
-  return {url: img.src, alt: img.alt, width: img.width, height: img.height}
+  return { url: img.src, alt: img.alt, width: img.width, height: img.height };
 }
 
 function placeholderHero(): HeroContent {
   return {
     image: placeholderImage(heroPlaceholder.desktop),
     mobileImage: placeholderImage(heroPlaceholder.mobile),
-  }
+  };
 }
 
 function slugify(label: string): string {
@@ -82,7 +85,7 @@ function slugify(label: string): string {
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
+    .replace(/(^-|-$)/g, '');
 }
 
 function placeholderBiography(): BiographyContent {
@@ -92,14 +95,14 @@ function placeholderBiography(): BiographyContent {
       _type: 'block',
       _key: `placeholder-${index}`,
       style: 'normal',
-      children: [{_type: 'span', _key: `placeholder-${index}-span`, text, marks: []}],
+      children: [{ _type: 'span', _key: `placeholder-${index}-span`, text, marks: [] }],
       markDefs: [],
     })),
     cta: {
       label: site.copy.biographyCtaLabel,
       target: 'whatsapp',
     },
-  }
+  };
 }
 
 function placeholderPortfolio(): PortfolioItem[] {
@@ -108,7 +111,7 @@ function placeholderPortfolio(): PortfolioItem[] {
     image: placeholderImage(image),
     caption: image.caption,
     categories: [],
-  }))
+  }));
 }
 
 function placeholderServices(): ServiceCard[] {
@@ -117,7 +120,7 @@ function placeholderServices(): ServiceCard[] {
     title: service.label,
     slug: slugify(service.label),
     image: placeholderImage(service),
-  }))
+  }));
 }
 
 function placeholderContent(warnings: string[]): HomeContent {
@@ -127,10 +130,15 @@ function placeholderContent(warnings: string[]): HomeContent {
     portfolio: placeholderPortfolio(),
     services: placeholderServices(),
     meta: {
-      sources: {hero: 'placeholder', biography: 'placeholder', portfolio: 'placeholder', services: 'placeholder'},
+      sources: {
+        hero: 'placeholder',
+        biography: 'placeholder',
+        portfolio: 'placeholder',
+        services: 'placeholder',
+      },
       warnings,
     },
-  }
+  };
 }
 
 /**
@@ -139,26 +147,28 @@ function placeholderContent(warnings: string[]): HomeContent {
  * domain types in `types.ts`, and applies the fallback policy above.
  */
 export async function getHomeContent(options?: GetHomeContentOptions): Promise<HomeContent> {
-  const allowFallbacks = resolveAllowFallbacks(options)
-  const warnings: string[] = []
+  const allowFallbacks = resolveAllowFallbacks(options);
+  const warnings: string[] = [];
 
-  let homeDoc: HOME_PAGE_QUERY_RESULT
-  let portfolioRaw: PORTFOLIO_IMAGES_QUERY_RESULT
-  let servicesRaw: SERVICE_CATEGORIES_QUERY_RESULT
+  let homeDoc: HOME_PAGE_QUERY_RESULT;
+  let portfolioRaw: PORTFOLIO_IMAGES_QUERY_RESULT;
+  let servicesRaw: SERVICE_CATEGORIES_QUERY_RESULT;
 
   try {
-    ;[homeDoc, portfolioRaw, servicesRaw] = await Promise.all([
+    [homeDoc, portfolioRaw, servicesRaw] = await Promise.all([
       sanityClient.fetch(HOME_PAGE_QUERY),
       sanityClient.fetch(PORTFOLIO_IMAGES_QUERY),
       sanityClient.fetch(SERVICE_CATEGORIES_QUERY),
-    ])
+    ]);
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error)
+    const reason = error instanceof Error ? error.message : String(error);
     if (!allowFallbacks) {
-      throw new Error(`Failed to fetch content from Sanity and fallbacks are disabled: ${reason}`)
+      throw new Error(`Failed to fetch content from Sanity and fallbacks are disabled: ${reason}`, {
+        cause: error,
+      });
     }
-    warnings.push(warn(`Failed to fetch content from Sanity, using placeholders. (${reason})`))
-    return placeholderContent(warnings)
+    warnings.push(warn(`Failed to fetch content from Sanity, using placeholders. (${reason})`));
+    return placeholderContent(warnings);
   }
 
   const sources: Record<ContentSection, ContentSource> = {
@@ -166,47 +176,47 @@ export async function getHomeContent(options?: GetHomeContentOptions): Promise<H
     biography: 'sanity',
     portfolio: 'sanity',
     services: 'sanity',
-  }
+  };
 
-  let hero = mapHero(homeDoc?.hero ?? null)
+  let hero = mapHero(homeDoc?.hero ?? null);
   if (!hero) {
     if (!allowFallbacks) {
       throw new Error(
         'Missing "hero" content: create the "Página de inicio" document (with a hero image) in the Sanity Studio.',
-      )
+      );
     }
-    warnings.push(warn('Missing hero content, using placeholders.'))
-    hero = placeholderHero()
-    sources.hero = 'placeholder'
+    warnings.push(warn('Missing hero content, using placeholders.'));
+    hero = placeholderHero();
+    sources.hero = 'placeholder';
   }
 
-  let biography = mapBiography(homeDoc?.biography ?? null)
+  let biography = mapBiography(homeDoc?.biography ?? null);
   if (!biography) {
     if (!allowFallbacks) {
       throw new Error(
         'Missing "biography" content: create the "Página de inicio" document (with a biography) in the Sanity Studio.',
-      )
+      );
     }
-    warnings.push(warn('Missing biography content, using placeholders.'))
-    biography = placeholderBiography()
-    sources.biography = 'placeholder'
+    warnings.push(warn('Missing biography content, using placeholders.'));
+    biography = placeholderBiography();
+    sources.biography = 'placeholder';
   }
 
-  let portfolio = portfolioRaw.map(mapPortfolioItem)
+  let portfolio = portfolioRaw.map(mapPortfolioItem);
   if (portfolio.length === 0 && allowFallbacks) {
-    warnings.push(warn('No portfolio images found, using placeholders.'))
-    portfolio = placeholderPortfolio()
-    sources.portfolio = 'placeholder'
+    warnings.push(warn('No portfolio images found, using placeholders.'));
+    portfolio = placeholderPortfolio();
+    sources.portfolio = 'placeholder';
   }
   // else: an empty result outside the fallback path stays an empty array;
   // `studio-page` decides how to render it.
 
-  let services = servicesRaw.map(mapServiceCard)
+  let services = servicesRaw.map(mapServiceCard);
   if (services.length === 0 && allowFallbacks) {
-    warnings.push(warn('No service categories found, using placeholders.'))
-    services = placeholderServices()
-    sources.services = 'placeholder'
+    warnings.push(warn('No service categories found, using placeholders.'));
+    services = placeholderServices();
+    sources.services = 'placeholder';
   }
 
-  return {hero, biography, portfolio, services, meta: {sources, warnings}}
+  return { hero, biography, portfolio, services, meta: { sources, warnings } };
 }
