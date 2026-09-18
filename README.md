@@ -25,6 +25,8 @@ Fill in `.env` with the Sanity project configuration (see `.env.example` for the
 | `pnpm studio:dev`    | Start the Sanity Studio dev server                          |
 | `pnpm typegen`       | Regenerate Sanity schema and query types                    |
 | `pnpm content:check` | Fetch live content and report which sections used fallbacks |
+| `pnpm test`          | Run the unit tests once                                     |
+| `pnpm test:watch`    | Run the unit tests in watch mode                            |
 
 ## Checks
 
@@ -33,6 +35,7 @@ Every pull request and every push to `main` runs the following in GitHub Actions
 - **lint**: `pnpm lint`, `pnpm format:check`, `pnpm --filter studio lint`, `pnpm --filter studio format:check`
 - **typecheck**: `pnpm typecheck`, `pnpm --filter studio typecheck`, `pnpm typegen:check`
 - **build**: `pnpm build` (with `CONTENT_FALLBACKS=true`, so an editor's content change or a Sanity outage cannot fail the build) and `pnpm studio:build`
+- **test**: `pnpm test`
 
 Run the same checks locally with:
 
@@ -40,7 +43,7 @@ Run the same checks locally with:
 pnpm check
 ```
 
-which runs lint, format check, typecheck, the generated-types drift check, and both the site and Studio production builds, in order, failing fast.
+which runs lint, format check, typecheck, the unit tests, the generated-types drift check, and both the site and Studio production builds, in order, failing fast.
 
 ## Repository layout
 
