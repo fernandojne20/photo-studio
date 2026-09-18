@@ -11,30 +11,30 @@
  * that resolution instead, so the script imports plain `./content/home`
  * paths like every other file in `src/`.
  */
-import {getHomeContent} from '../src/content/home'
+import { getHomeContent } from '../src/content/home';
 
 async function main() {
-  const content = await getHomeContent({fallbacks: 'allow'})
-  const {sources} = content.meta
+  const content = await getHomeContent({ fallbacks: 'allow' });
+  const { sources } = content.meta;
 
-  console.log('Home content report')
-  console.log('--------------------')
-  console.log(`hero:       ${sources.hero}`)
-  console.log(`biography:  ${sources.biography}`)
-  console.log(`portfolio:  ${sources.portfolio} (${content.portfolio.length} item(s))`)
-  console.log(`services:   ${sources.services} (${content.services.length} item(s))`)
+  console.log('Home content report');
+  console.log('--------------------');
+  console.log(`hero:       ${sources.hero}`);
+  console.log(`biography:  ${sources.biography}`);
+  console.log(`portfolio:  ${sources.portfolio} (${content.portfolio.length} item(s))`);
+  console.log(`services:   ${sources.services} (${content.services.length} item(s))`);
 
   if (content.meta.warnings.length > 0) {
-    console.log('\nWarnings:')
+    console.log('\nWarnings:');
     for (const message of content.meta.warnings) {
-      console.log(`  - ${message}`)
+      console.log(`  - ${message}`);
     }
   } else {
-    console.log('\nWarnings: none')
+    console.log('\nWarnings: none');
   }
 }
 
 main().catch((error) => {
-  console.error(error)
-  process.exitCode = 1
-})
+  console.error(error);
+  process.exitCode = 1;
+});

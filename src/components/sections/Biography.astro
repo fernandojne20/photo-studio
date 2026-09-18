@@ -30,21 +30,21 @@ const ctaIsExternal = cta ? cta.target === 'whatsapp' || cta.target === 'url' : 
 <section id="biografia" class="biography">
   <div class="biography__inner">
     <Monogram tone="muted" class="biography__monogram" />
-    <p class="biography__script" aria-hidden="true">{site.tagline}</p>
+    <p class="biography__script" aria-hidden="true">
+      {site.tagline}
+    </p>
     <h2 class="biography__name">{site.name}</h2>
     <PortableTextBody value={biography.body} class="biography__body" />
-    {
-      cta && (
-        <a
-          class="biography__cta"
-          href={ctaHref}
-          target={ctaIsExternal ? '_blank' : undefined}
-          rel={ctaIsExternal ? 'noopener' : undefined}
-        >
-          {cta.label}
-        </a>
-      )
-    }
+    {cta && (
+      <a
+        class="biography__cta"
+        href={ctaHref}
+        target={ctaIsExternal ? '_blank' : undefined}
+        rel={ctaIsExternal ? 'noopener' : undefined}
+      >
+        {cta.label}
+      </a>
+    )}
     <div class="biography__portrait">
       <SanityImage
         image={biography.portrait}

@@ -29,7 +29,9 @@ const { title, description = site.description } = Astro.props;
     <Font cssVariable="--font-adelia" preload />
   </head>
   <body>
-    <a class="skip-link" href="#main">{site.copy.a11y.skipToContent}</a>
+    <a class="skip-link" href="#main">
+      {site.copy.a11y.skipToContent}
+    </a>
     <slot name="header" />
     <main id="main">
       <slot />

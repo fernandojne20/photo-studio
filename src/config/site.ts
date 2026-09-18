@@ -108,8 +108,7 @@ export const site: SiteConfig = {
   name: 'Laury Herrera',
   tagline: 'Creando recuerdos para toda la vida.',
   locale: 'es-AR',
-  description:
-    'Fotografía de familia, niños y retratos. Estudio, exteriores, domicilio y eventos.',
+  description: 'Fotografía de familia, niños y retratos. Estudio, exteriores, domicilio y eventos.',
   url: 'https://example.com',
 
   whatsapp: {
@@ -154,8 +153,7 @@ export const site: SiteConfig = {
     contact: {
       heading: 'Conectemos',
       intro: 'Mereces volver a tus mejores recuerdos.',
-      paragraph:
-        'Reserva tu evento con tiempo, si quieres más información déjanos tu contacto.',
+      paragraph: 'Reserva tu evento con tiempo, si quieres más información déjanos tu contacto.',
       alternativeIntro: 'También puedes enviarme un mail directo:',
       alternativeCall: 'o llamarme o escribirme:',
     },

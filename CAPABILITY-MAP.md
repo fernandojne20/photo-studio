@@ -2,14 +2,14 @@
 
 This map decomposes version one into independently testable modules. Module IDs are stable and should be used by specifications, plans, and tasks.
 
-| Module ID | Responsibility | Depends on |
-|---|---|---|
-| `site-foundation` | Establish the Astro and TypeScript project, design tokens, font loading, static configuration, shared layout, and development-quality placeholder assets. | - |
-| `content-management` | Define and deploy the Sanity Studio schemas, editorial validation, image metadata, ordering, generated types, content queries, and preview/fallback behavior. | `site-foundation` |
-| `studio-page` | Build the responsive Spanish homepage and connect its hero, welcome, portfolio, biography, services, contact, and footer sections to their approved content sources. | `site-foundation`, `content-management` |
-| `media-interactions` | Provide the portfolio lightbox, service carousel, hover zoom, touch behavior, keyboard interaction, focus management, and reduced-motion handling. | `studio-page` |
-| `contact-conversion` | Implement WhatsApp deep linking and the fallback contact form using validation, Turnstile, server-side delivery, and user-facing success/error states. | `studio-page` |
-| `production-delivery` | Add SEO metadata, social sharing, analytics-ready hooks, performance budgets, automated verification, and Cloudflare deployment. | `media-interactions`, `contact-conversion` |
+| Module ID             | Responsibility                                                                                                                                                       | Depends on                                 |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `site-foundation`     | Establish the Astro and TypeScript project, design tokens, font loading, static configuration, shared layout, and development-quality placeholder assets.            | -                                          |
+| `content-management`  | Define and deploy the Sanity Studio schemas, editorial validation, image metadata, ordering, generated types, content queries, and preview/fallback behavior.        | `site-foundation`                          |
+| `studio-page`         | Build the responsive Spanish homepage and connect its hero, welcome, portfolio, biography, services, contact, and footer sections to their approved content sources. | `site-foundation`, `content-management`    |
+| `media-interactions`  | Provide the portfolio lightbox, service carousel, hover zoom, touch behavior, keyboard interaction, focus management, and reduced-motion handling.                   | `studio-page`                              |
+| `contact-conversion`  | Implement WhatsApp deep linking and the fallback contact form using validation, Turnstile, server-side delivery, and user-facing success/error states.               | `studio-page`                              |
+| `production-delivery` | Add SEO metadata, social sharing, analytics-ready hooks, performance budgets, automated verification, and Cloudflare deployment.                                     | `media-interactions`, `contact-conversion` |
 
 ## Proposed build order
 

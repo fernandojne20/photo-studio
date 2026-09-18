@@ -58,9 +58,7 @@ export function buildSanitySrcSet(
   const largest = widths[widths.length - 1];
   const srcset = widths.map((w) => `${buildUrl(w)} ${w}w`).join(', ');
   const width = parsedRatio ? image.width || largest : image.width;
-  const height = parsedRatio
-    ? Math.round((width * parsedRatio.h) / parsedRatio.w)
-    : image.height;
+  const height = parsedRatio ? Math.round((width * parsedRatio.h) / parsedRatio.w) : image.height;
 
   return { src: buildUrl(largest), srcset, width, height };
 }

@@ -38,25 +38,23 @@ const { a11y } = site.copy;
 
     <nav class="header__nav" aria-label={a11y.mainMenu}>
       <ul role="list" class="header__nav-list">
-        {
-          visibleItems.map((item) => {
-            const href = item.kind === 'whatsapp' ? whatsAppUrl : item.href;
-            const isCurrent = item.id === 'lau';
-            return (
-              <li>
-                <a
-                  class:list={['header__nav-link', { 'header__nav-link--current': isCurrent }]}
-                  href={href}
-                  target={item.kind === 'whatsapp' ? '_blank' : undefined}
-                  rel={item.kind === 'whatsapp' ? 'noopener' : undefined}
-                  aria-current={isCurrent ? 'page' : undefined}
-                >
-                  {item.label}
-                </a>
-              </li>
-            );
-          })
-        }
+        {visibleItems.map((item) => {
+          const href = item.kind === 'whatsapp' ? whatsAppUrl : item.href;
+          const isCurrent = item.id === 'lau';
+          return (
+            <li>
+              <a
+                class:list={['header__nav-link', { 'header__nav-link--current': isCurrent }]}
+                href={href}
+                target={item.kind === 'whatsapp' ? '_blank' : undefined}
+                rel={item.kind === 'whatsapp' ? 'noopener' : undefined}
+                aria-current={isCurrent ? 'page' : undefined}
+              >
+                {item.label}
+              </a>
+            </li>
+          );
+        })}
       </ul>
     </nav>
 
@@ -68,7 +66,9 @@ const { a11y } = site.copy;
       data-menu-toggle
       data-close-label={a11y.closeMenu}
     >
-      <span class="visually-hidden" data-menu-toggle-label>{a11y.openMenu}</span>
+      <span class="visually-hidden" data-menu-toggle-label>
+        {a11y.openMenu}
+      </span>
       <span class="header__toggle-bars" aria-hidden="true">
         <span></span>
         <span></span>
@@ -79,23 +79,21 @@ const { a11y } = site.copy;
 
   <nav id="mobile-menu" class="header__mobile-nav" aria-label={a11y.mainMenu} hidden>
     <ul role="list" class="header__mobile-nav-list">
-      {
-        visibleItems.map((item) => {
-          const href = item.kind === 'whatsapp' ? whatsAppUrl : item.href;
-          return (
-            <li>
-              <a
-                class="header__mobile-nav-link"
-                href={href}
-                target={item.kind === 'whatsapp' ? '_blank' : undefined}
-                rel={item.kind === 'whatsapp' ? 'noopener' : undefined}
-              >
-                {item.label}
-              </a>
-            </li>
-          );
-        })
-      }
+      {visibleItems.map((item) => {
+        const href = item.kind === 'whatsapp' ? whatsAppUrl : item.href;
+        return (
+          <li>
+            <a
+              class="header__mobile-nav-link"
+              href={href}
+              target={item.kind === 'whatsapp' ? '_blank' : undefined}
+              rel={item.kind === 'whatsapp' ? 'noopener' : undefined}
+            >
+              {item.label}
+            </a>
+          </li>
+        );
+      })}
     </ul>
   </nav>
 </header>

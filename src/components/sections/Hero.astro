@@ -30,18 +30,18 @@ const mobileSrcSet = mobileImage
 ---
 
 <section id="inicio" class="hero">
-  <h1 class="visually-hidden">{site.name} — {site.tagline}</h1>
+  <h1 class="visually-hidden">
+    {site.name} — {site.tagline}
+  </h1>
 
   <picture>
-    {
-      mobileSrcSet && (
-        <source
-          media="(max-width: 640px)"
-          srcset={mobileSrcSet.srcset ?? mobileSrcSet.src}
-          sizes="100vw"
-        />
-      )
-    }
+    {mobileSrcSet && (
+      <source
+        media="(max-width: 640px)"
+        srcset={mobileSrcSet.srcset ?? mobileSrcSet.src}
+        sizes="100vw"
+      />
+    )}
     <SanityImage
       image={hero.image}
       widths={[640, 960, 1366, 1600, 1920]}
