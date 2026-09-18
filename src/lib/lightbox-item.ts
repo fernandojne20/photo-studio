@@ -33,25 +33,51 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function isCropFractions(value: unknown): value is CropFractions {
+function isFiniteNonNegative(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+/**
+ * A crop is only usable when every fraction is a real, non-negative number
+ * and each axis still leaves a positive sliver of the image. `typeof NaN
+ * === 'number'`, so a plain `typeof` check alone would accept a NaN
+ * fraction; `Number.isFinite` rejects that along with `Infinity`. A
+ * degenerate crop (fractions summing to 1 or more on an axis, or a negative
+ * fraction) is ignored entirely rather than clamped, falling back to the
+ * original, always-valid dimensions.
+ */
+function isUsableCropFractions(value: unknown): value is CropFractions {
+  if (!isRecord(value)) return false;
+  const { left, right, top, bottom } = value;
+
   return (
-    isRecord(value) &&
-    typeof value.left === 'number' &&
-    typeof value.right === 'number' &&
-    typeof value.top === 'number' &&
-    typeof value.bottom === 'number'
+    isFiniteNonNegative(left) &&
+    isFiniteNonNegative(right) &&
+    isFiniteNonNegative(top) &&
+    isFiniteNonNegative(bottom) &&
+    left + right < 1 &&
+    top + bottom < 1
   );
 }
 
 /**
  * Narrows the CMS image's opaque `source` to its Studio crop fractions, when
- * the source is a plain image object that carries one. `SanityImageSource`
- * also allows a bare asset ID string or reference, neither of which has a
- * `crop`.
+ * the source is a plain image object that carries a usable one.
+ * `SanityImageSource` also allows a bare asset ID string or reference,
+ * neither of which has a `crop`.
  */
 function getCropFractions(source: SanityImageSource): CropFractions | null {
   if (!isRecord(source)) return null;
-  return isCropFractions(source.crop) ? source.crop : null;
+  return isUsableCropFractions(source.crop) ? source.crop : null;
+}
+
+/**
+ * `mappers.ts` sets `width`/`height` to `0` when the asset metadata
+ * dimensions are missing, even though `source` is still set; building CDN
+ * URLs from that would divide by zero and put `NaN`/`w=0` in the result.
+ */
+function isFinitePositive(value: number): boolean {
+  return Number.isFinite(value) && value > 0;
 }
 
 /** The widest image the lightbox ever requests. */
@@ -74,8 +100,9 @@ function buildCandidateWidths(displayedWidth: number): number[] {
 export function buildLightboxItem(image: CmsImage, caption?: string): LightboxItem {
   const trimmedCaption = caption?.trim();
   const captionField = trimmedCaption ? { caption: trimmedCaption } : {};
+  const hasUsableDimensions = isFinitePositive(image.width) && isFinitePositive(image.height);
 
-  if (!image.source) {
+  if (!image.source || !hasUsableDimensions) {
     return {
       href: image.url,
       width: image.width,
