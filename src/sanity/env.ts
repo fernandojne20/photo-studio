@@ -15,6 +15,17 @@ function readEnv(): RuntimeEnv {
   if (metaEnv?.PUBLIC_SANITY_PROJECT_ID || metaEnv?.PUBLIC_SANITY_DATASET) {
     return metaEnv;
   }
+  // `process` is a Node global: it does not exist in a browser, nor in the
+  // Cloudflare Workers runtime (`workerd`) that `@astrojs/cloudflare` can
+  // use to prerender this project's static pages (see
+  // `odd/tasks/contact-conversion.md`). The `import.meta.env` branch above
+  // is what normally supplies these values in every environment this
+  // module actually runs in; this is a defensive fallback for the plain
+  // Node script path (`node --env-file=.env --import tsx
+  // scripts/print-home-content.ts`).
+  if (typeof process === 'undefined') {
+    return {};
+  }
   return {
     PUBLIC_SANITY_PROJECT_ID: process.env.PUBLIC_SANITY_PROJECT_ID,
     PUBLIC_SANITY_DATASET: process.env.PUBLIC_SANITY_DATASET,

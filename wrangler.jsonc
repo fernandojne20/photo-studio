@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Static site with one on-demand route (`/api/contact`), served through
+  // `@astrojs/cloudflare` as a Worker with static assets. No account id and
+  // no routes here: those are set when the site is actually deployed
+  // (`production-delivery`, out of scope for `contact-conversion`).
+  "name": "photo-studio",
+  "compatibility_date": "2026-09-18",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+  },
+}

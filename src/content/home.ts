@@ -67,7 +67,11 @@ function resolveAllowFallbacks(options?: GetHomeContentOptions): boolean {
       ? (import.meta as { env?: Record<string, unknown> }).env
       : undefined;
   const dev = Boolean(metaEnv?.DEV);
-  const flag = (metaEnv?.CONTENT_FALLBACKS as string | undefined) ?? process.env.CONTENT_FALLBACKS;
+  // `process` does not exist in a browser, nor in the Cloudflare Workers
+  // runtime (`workerd`) that `@astrojs/cloudflare` can use to prerender
+  // this project's static pages (see `odd/tasks/contact-conversion.md`).
+  const processEnvFlag = typeof process !== 'undefined' ? process.env.CONTENT_FALLBACKS : undefined;
+  const flag = (metaEnv?.CONTENT_FALLBACKS as string | undefined) ?? processEnvFlag;
 
   return resolveFallbackPolicy({ option: options?.fallbacks, dev, flag });
 }

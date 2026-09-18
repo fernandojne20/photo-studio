@@ -1,0 +1,42 @@
+# Local development secrets and vars for `wrangler`/`@astrojs/cloudflare`
+# (see the "env.schema" in `astro.config.mjs` and `odd/tasks/contact-conversion.md`).
+#
+# Copy this file to `.dev.vars` (gitignored) and fill in real values as
+# needed. Every variable here is optional: with none set, `/api/contact`
+# answers `503 not_configured` instead of pretending to send anything.
+#
+# RUNTIME versus BUILD-TIME (verified by reading the installed sources —
+# see `astro.config.mjs` for the exact file/line references):
+#
+# - TURNSTILE_SECRET_KEY, RESEND_API_KEY, CONTACT_FROM_EMAIL, and
+#   CONTACT_TO_EMAIL are `access: 'secret'`: read from the Worker's own
+#   runtime environment when the Worker starts. Changing one of these here
+#   needs no rebuild, only a restart of the local server. In production
+#   they are set with `wrangler secret put <NAME>` (or as a `vars` entry
+#   in `wrangler.jsonc`, for the two addresses, which are not sensitive).
+# - PUBLIC_TURNSTILE_SITE_KEY is `access: 'public'`, which means it is
+#   inlined as a literal into the built JavaScript at BUILD time. It must
+#   exist in whatever environment actually RUNS `astro build`/`astro dev`
+#   (locally: this file, or `.env` — both work, and `.dev.vars` wins if
+#   both are set; in a deploy pipeline: the build step's own environment
+#   variables, or a `.env` file it can read — never a Cloudflare Worker
+#   `vars`/secret set only at or after deploy time, since that has no
+#   effect on a bundle that was already built).
+
+# Cloudflare Turnstile — official, publicly documented TEST keys (safe to
+# commit; they only work in Turnstile's test/sandbox mode, never in
+# production). The pair below always passes:
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA
+# To exercise the captcha_failed path instead, swap in the always-FAILS
+# secret key (keep the always-passes site key, since the widget itself
+# still needs to render and submit a token):
+#   TURNSTILE_SECRET_KEY=2x0000000000000000000000000000000AA
+# Or the always-BLOCKS site key, if testing the widget itself:
+#   PUBLIC_TURNSTILE_SITE_KEY=2x00000000000000000000AB
+
+# Resend — no account exists yet (the sending domain is not verified); leave
+# these empty locally until it is (see `odd/tasks/contact-conversion.md`).
+RESEND_API_KEY=
+CONTACT_FROM_EMAIL=
+CONTACT_TO_EMAIL=

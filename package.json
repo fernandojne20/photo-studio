@@ -26,6 +26,7 @@
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm typegen:check && pnpm build && pnpm --filter studio lint && pnpm --filter studio format:check && pnpm --filter studio typecheck && pnpm --filter studio build"
   },
   "dependencies": {
+    "@astrojs/cloudflare": "^14.3.2",
     "@sanity/client": "^8.6.2",
     "@sanity/image-url": "^2.1.1",
     "astro": "^7.3.3",
@@ -52,6 +53,7 @@
     "tsx": "^4.19.2",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.1",
+    "wrangler": "^4.135.0"
   }
 }
