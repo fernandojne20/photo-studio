@@ -58,7 +58,7 @@ User rule (2026-09-18): keep pull requests under 1000 changed lines of reviewabl
 - [x] CI-03 `.github/workflows/ci.yml` with the `lint`, `typecheck`, `build` jobs; `actionlint` passes.
 - [x] CI-04 README "Checks" section: what runs in CI and how to run it locally.
 - [x] CI-05 Verify on GitHub: open the pull request and confirm the three jobs pass on the pull request run.
-- [ ] CI-06 Stacked pull request: Vitest with unit tests for the pure logic (`buildWhatsAppUrl`, `parseAspectRatio` and `buildSanitySrcSet`, the Sanity mappers, the `getHomeContent()` fallback policy with a mocked client), `test` and `test:watch` scripts, `test` added to `pnpm check`, and a `test` job in the workflow.
+- [x] CI-06 Stacked pull request: Vitest with unit tests for the pure logic (`buildWhatsAppUrl`, `parseAspectRatio` and `buildSanitySrcSet`, the Sanity mappers, the `getHomeContent()` fallback policy with a mocked client), `test` and `test:watch` scripts, `test` added to `pnpm check`, and a `test` job in the workflow.
 
 ## Acceptance criteria
 
@@ -76,6 +76,8 @@ User rule (2026-09-18): keep pull requests under 1000 changed lines of reviewabl
 
 - 2026-09-18 CI-05 done. Pull request #3 (`ci/github-actions` into `main`): GitHub Actions run 35369582587 passed all three jobs, `lint` in 25s, `build` in 26s, `typecheck` in 51s.
 
+- 2026-09-18 CI-06 done on `ci/tests`, stacked on `ci/github-actions`. One delegated writer (Sonnet) added Vitest 5 (`environment: node`, tests next to the code, fake `PUBLIC_SANITY_*` values injected by `vitest.config.ts`), four suites and no production changes: `buildWhatsAppUrl` plus navigation invariants of the real site config, `parseAspectRatio` and `buildSanitySrcSet`, the Sanity mappers with fixtures typed from the generated query results, and the `getHomeContent()` fallback policy with `../sanity/client` mocked through `vi.hoisted`. Scripts `test` and `test:watch`, `pnpm test` inside `check`, a fourth `test` job in the workflow with the same pinned setup, README updated. Native risk assessment `high` again (workflow touched), so an independent verifier reviewed the tests for value: its three mutations were caught (inverted ratio, deny-path empty portfolio falling back, dropped `lqip`), the mock never reaches the network, no `any` or casts, the new job adds no permissions or secrets. Its four test-quality findings were fixed by the writer: partial `homePage` documents (hero without biography and the inverse, allow and deny), warning content asserted on the result and on the `console.warn` spy instead of counts, literal height expectations that force rounding both ways (`1366 / 850` at 640, 960, 1600 gives 398, 597, 996; `393 / 560` at 400 gives 570), and an assertion that built URLs use `testproject/testdataset`. Final evidence: `pnpm test` 4 files and 47 tests passed; `pnpm lint`, `pnpm format:check`, `pnpm typecheck` (36 files, 0 errors) and `pnpm check` exit 0; `actionlint` clean; a swap of the hero and biography warning strings in `home.ts` fails three tests and was reverted.
+
 ## Next step
 
-CI-06: the stacked tests pull request on `ci/tests`, based on `ci/github-actions`.
+Open the stacked pull request from `ci/tests` into `ci/github-actions` and confirm the four jobs pass. After both merge, continue with `media-interactions` and `contact-conversion`.
