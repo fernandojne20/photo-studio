@@ -77,4 +77,4 @@ Each pull request is reported as ready only after CI is green and the review bot
 
 ## Next step
 
-Wait for the independent review of pull request #7, fix what it finds, then push `feat/media-carousel` and open the stacked pull request. After both merge: `contact-conversion`.
+The carousel branch was rebased on the reviewed lightbox branch (no conflicts), `embla-carousel` moved to a caret range, and `pnpm check` passes with 80 tests. Open the stacked pull request, cover it with an independent review while the bot is out of quota, and after both merge continue with `contact-conversion`.
