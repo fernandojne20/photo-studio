@@ -17,7 +17,7 @@ export declare const internalGroqTypeReferenceTo: unique symbol;
 // Source: schema.json
 export type ServiceCategory = {
   _id: string;
-  _type: "serviceCategory";
+  _type: 'serviceCategory';
   _createdAt: string;
   _updatedAt: string;
   _rev: string;
@@ -30,13 +30,13 @@ export type ServiceCategory = {
 
 export type SanityImageAssetReference = {
   _ref: string;
-  _type: "reference";
+  _type: 'reference';
   _weak?: boolean;
-  [internalGroqTypeReferenceTo]?: "sanity.imageAsset";
+  [internalGroqTypeReferenceTo]?: 'sanity.imageAsset';
 };
 
 export type ImageWithAlt = {
-  _type: "imageWithAlt";
+  _type: 'imageWithAlt';
   asset?: SanityImageAssetReference;
   media?: unknown;
   hotspot?: SanityImageHotspot;
@@ -45,21 +45,21 @@ export type ImageWithAlt = {
 };
 
 export type Slug = {
-  _type: "slug";
+  _type: 'slug';
   current: string;
   source?: string;
 };
 
 export type ServiceCategoryReference = {
   _ref: string;
-  _type: "reference";
+  _type: 'reference';
   _weak?: boolean;
-  [internalGroqTypeReferenceTo]?: "serviceCategory";
+  [internalGroqTypeReferenceTo]?: 'serviceCategory';
 };
 
 export type PortfolioImage = {
   _id: string;
-  _type: "portfolioImage";
+  _type: 'portfolioImage';
   _createdAt: string;
   _updatedAt: string;
   _rev: string;
@@ -76,7 +76,7 @@ export type PortfolioImage = {
 
 export type HomePage = {
   _id: string;
-  _type: "homePage";
+  _type: 'homePage';
   _createdAt: string;
   _updatedAt: string;
   _rev: string;
@@ -90,14 +90,14 @@ export type HomePage = {
       children?: Array<{
         marks?: Array<string>;
         text?: string;
-        _type: "span";
+        _type: 'span';
         _key: string;
       }>;
-      style?: "normal";
+      style?: 'normal';
       listItem?: never;
       markDefs?: null;
       level?: number;
-      _type: "block";
+      _type: 'block';
       _key: string;
     }>;
     cta?: CallToAction;
@@ -105,14 +105,14 @@ export type HomePage = {
 };
 
 export type CallToAction = {
-  _type: "callToAction";
+  _type: 'callToAction';
   label?: string;
-  target?: "whatsapp" | "contact" | "url";
+  target?: 'whatsapp' | 'contact' | 'url';
   url?: string;
 };
 
 export type SanityImageCrop = {
-  _type: "sanity.imageCrop";
+  _type: 'sanity.imageCrop';
   top: number;
   bottom: number;
   left: number;
@@ -120,7 +120,7 @@ export type SanityImageCrop = {
 };
 
 export type SanityImageHotspot = {
-  _type: "sanity.imageHotspot";
+  _type: 'sanity.imageHotspot';
   x: number;
   y: number;
   height: number;
@@ -128,7 +128,7 @@ export type SanityImageHotspot = {
 };
 
 export type SanityImagePaletteSwatch = {
-  _type: "sanity.imagePaletteSwatch";
+  _type: 'sanity.imagePaletteSwatch';
   background?: string;
   foreground?: string;
   population?: number;
@@ -136,7 +136,7 @@ export type SanityImagePaletteSwatch = {
 };
 
 export type SanityImagePalette = {
-  _type: "sanity.imagePalette";
+  _type: 'sanity.imagePalette';
   darkMuted?: SanityImagePaletteSwatch;
   lightVibrant?: SanityImagePaletteSwatch;
   darkVibrant?: SanityImagePaletteSwatch;
@@ -147,14 +147,14 @@ export type SanityImagePalette = {
 };
 
 export type SanityImageDimensions = {
-  _type: "sanity.imageDimensions";
+  _type: 'sanity.imageDimensions';
   height: number;
   width: number;
   aspectRatio: number;
 };
 
 export type SanityImageMetadata = {
-  _type: "sanity.imageMetadata";
+  _type: 'sanity.imageMetadata';
   location?: Geopoint;
   dimensions?: SanityImageDimensions;
   palette?: SanityImagePalette;
@@ -167,7 +167,7 @@ export type SanityImageMetadata = {
 
 export type SanityFileAsset = {
   _id: string;
-  _type: "sanity.fileAsset";
+  _type: 'sanity.fileAsset';
   _createdAt: string;
   _updatedAt: string;
   _rev: string;
@@ -188,7 +188,7 @@ export type SanityFileAsset = {
 };
 
 export type SanityAssetSourceData = {
-  _type: "sanity.assetSourceData";
+  _type: 'sanity.assetSourceData';
   name?: string;
   id?: string;
   url?: string;
@@ -196,7 +196,7 @@ export type SanityAssetSourceData = {
 
 export type SanityImageAsset = {
   _id: string;
-  _type: "sanity.imageAsset";
+  _type: 'sanity.imageAsset';
   _createdAt: string;
   _updatedAt: string;
   _rev: string;
@@ -218,7 +218,7 @@ export type SanityImageAsset = {
 };
 
 export type Geopoint = {
-  _type: "geopoint";
+  _type: 'geopoint';
   lat?: number;
   lng?: number;
   alt?: number;
@@ -311,19 +311,19 @@ export type HOME_PAGE_QUERY_RESULT =
           children?: Array<{
             marks?: Array<string>;
             text?: string;
-            _type: "span";
+            _type: 'span';
             _key: string;
           }>;
-          style?: "normal";
+          style?: 'normal';
           listItem?: never;
           markDefs?: null;
           level?: number;
-          _type: "block";
+          _type: 'block';
           _key: string;
         }>;
         cta: {
           label: string | null;
-          target: "contact" | "url" | "whatsapp" | null;
+          target: 'contact' | 'url' | 'whatsapp' | null;
           url: string | null;
         } | null;
       } | null;
@@ -395,6 +395,6 @@ declare global {
   }
 }
 // Lets @sanity/client releases that predate the global registry read it too
-declare module "@sanity/client" {
+declare module '@sanity/client' {
   interface SanityQueries extends globalThis.SanityQueries {}
 }

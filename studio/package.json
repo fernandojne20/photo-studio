@@ -10,7 +10,10 @@
     "deploy-graphql": "sanity graphql deploy",
     "dev": "sanity dev",
     "start": "sanity start",
-    "typegen": "sanity schemas extract --enforce-required-fields --force && sanity typegen generate"
+    "typegen": "sanity schemas extract --enforce-required-fields --force && sanity typegen generate",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "format:check": "prettier --check ."
   },
   "keywords": [
     "sanity"
