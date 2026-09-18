@@ -57,7 +57,8 @@ User rule (2026-09-18): keep pull requests under 1000 changed lines of reviewabl
 - [x] CI-02 One-time formatting pass (`pnpm format`) in its own commit, no behavior change; regenerate types if the TypeGen output changed.
 - [x] CI-03 `.github/workflows/ci.yml` with the `lint`, `typecheck`, `build` jobs; `actionlint` passes.
 - [x] CI-04 README "Checks" section: what runs in CI and how to run it locally.
-- [ ] CI-05 Verify on GitHub: open the pull request and confirm the three jobs pass on the pull request run.
+- [x] CI-05 Verify on GitHub: open the pull request and confirm the three jobs pass on the pull request run.
+- [ ] CI-06 Stacked pull request: Vitest with unit tests for the pure logic (`buildWhatsAppUrl`, `parseAspectRatio` and `buildSanitySrcSet`, the Sanity mappers, the `getHomeContent()` fallback policy with a mocked client), `test` and `test:watch` scripts, `test` added to `pnpm check`, and a `test` job in the workflow.
 
 ## Acceptance criteria
 
@@ -73,6 +74,8 @@ User rule (2026-09-18): keep pull requests under 1000 changed lines of reviewabl
 - 2026-09-18 Parent changes after readback: `pull_request` has no base-branch filter so stacked pull requests are validated; `pnpm/action-setup` is pinned to commit `ea17c68df8912ef543352723c149a84f56e3d413` (v6.1.0, annotated tag dereferenced), GitHub-owned actions stay on `v7`. Hand fixes were committed separately from formatter output by restoring the three mixed files to `HEAD`, applying only the hand edits, and restoring the writer's final versions for the `style:` commit.
 - 2026-09-18 Native risk assessment: `high` (`shell_source` in the workflow), so an independent read-only verifier re-ran everything: 13 commands exit 0, tree clean; formatting commit sampled in 9 of 21 files with token-level comparison, pure; workflow security reviewed (read-only permissions, no secrets, fork runs have nothing to reach, SHA pin matches a GPG-verified v6.1.0 tag, `node-version-file` and `cache: pnpm` valid for `setup-node@v7`, `packageManager` honored by `action-setup`); ESLint confirmed to parse `.astro` frontmatter and inline scripts with `typescript-eslint`. One should-fix accepted: the Studio preview fix had dropped the whole `prepare()` parameter type, making `alt` and `caption` `any`; now `media` is typed with `PreviewValue['media']` and the other two stay typed, verified with a negative test, and folded into the findings commit.
 
+- 2026-09-18 CI-05 done. Pull request #3 (`ci/github-actions` into `main`): GitHub Actions run 35369582587 passed all three jobs, `lint` in 25s, `build` in 26s, `typecheck` in 51s.
+
 ## Next step
 
-CI-05: open the pull request and confirm the `lint`, `typecheck` and `build` jobs pass on GitHub. Then the stacked tests pull request.
+CI-06: the stacked tests pull request on `ci/tests`, based on `ci/github-actions`.
