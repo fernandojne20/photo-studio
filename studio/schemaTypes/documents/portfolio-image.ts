@@ -1,4 +1,4 @@
-import {defineArrayMember, defineField, defineType} from 'sanity'
+import {defineArrayMember, defineField, defineType, type PreviewValue} from 'sanity'
 import {ImageIcon} from '@sanity/icons/Image'
 import {orderRankField, orderRankOrdering} from '@sanity/orderable-document-list'
 
@@ -41,7 +41,18 @@ export const portfolioImage = defineType({
       caption: 'caption',
       media: 'image',
     },
-    prepare({alt, caption, media}: {alt?: string; caption?: string; media?: unknown}) {
+    // `media` is typed with Sanity's own preview type: the selected image
+    // value has to be assignable to `PreviewValue['media']`, which `unknown`
+    // is not. `alt` and `caption` stay typed so their use is still checked.
+    prepare({
+      alt,
+      caption,
+      media,
+    }: {
+      alt?: string
+      caption?: string
+      media?: PreviewValue['media']
+    }) {
       return {
         title: alt || 'Foto del portafolio',
         subtitle: caption,

@@ -70,8 +70,7 @@ const ctaIsExternal = cta ? cta.target === 'whatsapp' || cta.target === 'url' : 
     align-items: center;
     column-gap: var(--space-xl);
     padding-block: var(--space-2xl);
-    /* Left edge aligns with the shared container; the right edge is left
-       unpadded so the portrait can bleed to the true viewport edge. */
+    /* Left edge aligns with the shared container; the right edge is left unpadded so the portrait can bleed to the true viewport edge. */
     padding-inline-start: max(var(--container-padding), calc((100% - var(--container-width)) / 2));
     grid-template-areas:
       'monogram portrait'

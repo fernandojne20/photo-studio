@@ -53,7 +53,6 @@ function resolveAllowFallbacks(options?: GetHomeContentOptions): boolean {
 
 function warn(message: string): string {
   const full = `${WARNING_PREFIX} ${message}`
-  // eslint-disable-next-line no-console -- intentional, documented in the fallback policy
   console.warn(full)
   return full
 }
@@ -155,7 +154,9 @@ export async function getHomeContent(options?: GetHomeContentOptions): Promise<H
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
     if (!allowFallbacks) {
-      throw new Error(`Failed to fetch content from Sanity and fallbacks are disabled: ${reason}`)
+      throw new Error(`Failed to fetch content from Sanity and fallbacks are disabled: ${reason}`, {
+        cause: error,
+      })
     }
     warnings.push(warn(`Failed to fetch content from Sanity, using placeholders. (${reason})`))
     return placeholderContent(warnings)
