@@ -74,6 +74,15 @@ export interface AccessibilityLabels {
   instagram: string;
   goHome: string;
   skipToContent: string;
+  lightboxClose: string;
+  lightboxZoom: string;
+  lightboxPrev: string;
+  lightboxNext: string;
+  lightboxError: string;
+  lightboxIndexSep: string;
+  servicesCarouselLabel: string;
+  servicesCarouselPrev: string;
+  servicesCarouselNext: string;
 }
 
 export interface SiteCopy {
@@ -184,6 +193,15 @@ export const site: SiteConfig = {
       instagram: 'Instagram',
       goHome: 'Ir al inicio',
       skipToContent: 'Saltar al contenido',
+      lightboxClose: 'Cerrar',
+      lightboxZoom: 'Ampliar o reducir',
+      lightboxPrev: 'Foto anterior',
+      lightboxNext: 'Foto siguiente',
+      lightboxError: 'No se pudo cargar la foto',
+      lightboxIndexSep: ' de ',
+      servicesCarouselLabel: 'Servicios',
+      servicesCarouselPrev: 'Servicios anteriores',
+      servicesCarouselNext: 'Servicios siguientes',
     },
   },
 };

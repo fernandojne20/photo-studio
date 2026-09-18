@@ -1,6 +1,7 @@
 ---
 import SanityImage from '../SanityImage.astro';
 import { site } from '../../config/site';
+import { buildLightboxItem } from '../../lib/lightbox-item';
 import type { PortfolioItem } from '../../content/types';
 
 interface Props {
@@ -14,19 +15,51 @@ const { copy } = site;
 {items.length > 0 && (
   <section id="momentos" class="portfolio">
     <h2 class="portfolio__heading">{copy.portfolioHeading}</h2>
-    <ul role="list" class="portfolio__grid">
-      {items.map((item) => (
-        <li class="portfolio__item">
-          <SanityImage
-            image={item.image}
-            widths={[320, 480, 640, 960, 1280]}
-            sizes="33vw"
-            aspectRatio="4 / 5"
-            loading="lazy"
-            class="portfolio__image"
-          />
-        </li>
-      ))}
+    <ul
+      role="list"
+      class="portfolio__grid"
+      data-lightbox-gallery
+      data-close-title={copy.a11y.lightboxClose}
+      data-zoom-title={copy.a11y.lightboxZoom}
+      data-arrow-prev-title={copy.a11y.lightboxPrev}
+      data-arrow-next-title={copy.a11y.lightboxNext}
+      data-error-msg={copy.a11y.lightboxError}
+      data-index-indicator-sep={copy.a11y.lightboxIndexSep}
+    >
+      {items.map((item) => {
+        // The lightbox shows the image as framed in the Studio, not the 4:5
+        // grid crop below: thumbnail and full image always differ in ratio,
+        // hence the unconditional `data-cropped`.
+        const lightboxItem = buildLightboxItem(item.image, item.caption);
+        return (
+          <li class="portfolio__item">
+            <a
+              class="portfolio__link"
+              href={lightboxItem.href}
+              data-pswp-width={lightboxItem.width}
+              data-pswp-height={lightboxItem.height}
+              data-pswp-srcset={lightboxItem.srcset}
+              data-cropped="true"
+              target="_blank"
+              rel="noopener"
+            >
+              <SanityImage
+                image={item.image}
+                widths={[320, 480, 640, 960, 1280]}
+                sizes="33vw"
+                aspectRatio="4 / 5"
+                loading="lazy"
+                class="portfolio__image"
+              />
+              {lightboxItem.caption && (
+                <span class="visually-hidden" data-lightbox-caption>
+                  {lightboxItem.caption}
+                </span>
+              )}
+            </a>
+          </li>
+        );
+      })}
     </ul>
   </section>
 )}
@@ -55,9 +88,70 @@ const { copy } = site;
     gap: var(--space-2xs);
   }
 
+  .portfolio__link {
+    display: block;
+    overflow: hidden;
+  }
+
+  /* Inset so the ring stays visible over a photograph instead of being
+     clipped or lost against a light background outside the grid gap. */
+  .portfolio__link:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: -4px;
+  }
+
   .portfolio :global(.portfolio__image) {
     width: 100%;
     aspect-ratio: 4 / 5;
     object-fit: cover;
   }
+
+  /* MI-06: restrained hover zoom, hover-capable fine-pointer devices only, disabled under reduced motion; also on keyboard focus. Clipped by `.portfolio__link`'s own `overflow: hidden` above, so it never changes layout. */
+  @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .portfolio :global(.portfolio__image) {
+      transition: transform var(--duration-base) var(--ease-standard);
+    }
+
+    .portfolio__link:hover :global(.portfolio__image),
+    .portfolio__link:focus-visible :global(.portfolio__image) {
+      transform: scale(1.04);
+    }
+  }
 </style>
+
+<style is:global>
+  /* PhotoSwipe's own CSS custom properties (see `photoswipe/style.css`);
+     `.pswp` elements are created by the script below and appended outside
+     this component's rendered markup, so they need unscoped rules. */
+  .pswp {
+    --pswp-bg: var(--color-bg-dark);
+  }
+
+  /* Registered by `src/scripts/lightbox.ts` (PhotoSwipe has no built-in
+     caption); centered near the bottom, above the image. */
+  .pswp__custom-caption {
+    position: absolute;
+    inset-inline: 0;
+    bottom: var(--space-lg);
+    padding-inline: var(--space-md);
+    text-align: center;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--color-text-hero);
+    text-shadow: 0 1px 3px rgb(0 0 0 / 60%);
+    pointer-events: none;
+  }
+
+  .pswp__custom-caption:empty {
+    display: none;
+  }
+</style>
+
+<script>
+  import { initLightbox } from '../../scripts/lightbox';
+  import 'photoswipe/style.css';
+
+  document.querySelectorAll<HTMLElement>('[data-lightbox-gallery]').forEach((gallery) => {
+    initLightbox(gallery);
+  });
+</script>

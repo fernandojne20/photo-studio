@@ -1,0 +1,77 @@
+---
+import SanityImage from '../SanityImage.astro';
+import type { ServiceCard } from '../../content/types';
+
+interface Props {
+  service: ServiceCard;
+}
+
+const { service } = Astro.props;
+---
+
+<div class="service-card">
+  <SanityImage
+    image={service.image}
+    widths={[300, 600, 900]}
+    sizes="(max-width: 900px) 100vw, 25vw"
+    aspectRatio="1 / 1"
+    loading="lazy"
+    class="service-card__image"
+  />
+  <span class="service-card__label">{service.title}</span>
+</div>
+
+<style>
+  .service-card {
+    position: relative;
+    border-radius: var(--radius-card);
+    overflow: hidden;
+  }
+
+  .service-card :global(.service-card__image) {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+  }
+
+  .service-card__label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-hero);
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: var(--text-sm);
+    letter-spacing: var(--tracking-heading);
+    text-transform: uppercase;
+  }
+
+  @media (max-width: 900px) {
+    .service-card {
+      position: static;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .service-card__label {
+      position: static;
+      margin-top: var(--space-sm);
+      color: var(--color-text);
+    }
+  }
+
+  /* MI-06: restrained hover zoom, hover-capable fine-pointer devices only, disabled under reduced motion. */
+  @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .service-card :global(.service-card__image) {
+      transition: transform var(--duration-base) var(--ease-standard);
+    }
+
+    .service-card:hover :global(.service-card__image) {
+      transform: scale(1.04);
+    }
+  }
+</style>
