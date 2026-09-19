@@ -313,6 +313,26 @@ describe('details of the HTML tokenizer that checks rely on', () => {
     });
   });
 
+  it('decodes &bsol;, which a browser then reads as a slash in a URL', () => {
+    expect(parseAttributes('<script src="&bsol;&bsol;evil.test/x.js">').src).toBe(
+      '\\\\evil.test/x.js',
+    );
+  });
+
+  it.each(['iframe', 'noembed', 'noframes', 'xmp'])(
+    'does not read tags out of <%s>, whose content is text',
+    (name) => {
+      const html = `<${name}><a href="mailto:x@example.com">fallback</a><img src="x"></${name}><p>`;
+      expect(findTags(html)).toEqual([`<${name}>`, '<p>']);
+    },
+  );
+
+  it('reads nothing after <plaintext>, which never closes', () => {
+    expect(findTags('<p><plaintext><a href="mailto:x@example.com">x</a></plaintext><img>')).toEqual(
+      ['<p>', '<plaintext>'],
+    );
+  });
+
   it('leaves an unknown or invalid reference as written', () => {
     expect(parseAttributes('<a title="&bogus; &#0; &#x110000;">').title).toBe(
       '&bogus; &#0; &#x110000;',

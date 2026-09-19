@@ -125,6 +125,22 @@ describe('checkContentSecurityPolicy', () => {
     expect(problems.some((p) => p.includes('/* rule'))).toBe(true);
   });
 
+  it('fails when a narrower rule detaches the policy from its paths', () => {
+    const problems = checkContentSecurityPolicy({
+      pageHtmls: [page(COMPLIANT_POLICY)],
+      headersText: `${headersText()}\n/private/*\n  ! Content-Security-Policy\n`,
+    });
+    expect(problems).toEqual(['_headers must not detach a header (a line starting with "!").']);
+  });
+
+  it('fails with a second /* rule', () => {
+    const problems = checkContentSecurityPolicy({
+      pageHtmls: [page(COMPLIANT_POLICY)],
+      headersText: `${headersText()}\n/*\n  X-Extra: 1\n`,
+    });
+    expect(problems).toEqual(['_headers must have exactly one /* rule, found 2.']);
+  });
+
   it('fails with two Content-Security-Policy lines in _headers', () => {
     const problems = checkContentSecurityPolicy({
       pageHtmls: [page(COMPLIANT_POLICY)],
@@ -276,6 +292,30 @@ describe('inline content must be allowed by the page policy', () => {
       'page 0 policy: inline style 0 has no matching hash in style-src.',
     ]);
   });
+
+  it.each([
+    'type="text/ecmascript"',
+    'type="application/x-javascript"',
+    'type="TEXT/JavaScript"',
+    'type=" module "',
+    'type="text/javascript; charset=utf-8"',
+    'type="importmap"',
+    'type=""',
+    'language="JavaScript"',
+  ])('asks for a hash for an inline <script %s>', (attribute) => {
+    const unlisted = `<script ${attribute}>unlisted()</script>`;
+    expect(run(policyWith(sha(SCRIPT), sha(STYLE)), body + unlisted)).toEqual([
+      'page 0 policy: inline script 1 has no matching hash in script-src.',
+    ]);
+  });
+
+  it.each(['type="text/plain"', 'type="application/json"', 'language="vbscript"'])(
+    'asks for no hash for the data block <script %s>',
+    (attribute) => {
+      const dataBlock = `<script ${attribute}>{"a":1}</script>`;
+      expect(run(policyWith(sha(SCRIPT), sha(STYLE)), body + dataBlock)).toEqual([]);
+    },
+  );
 
   it('does not ask for a hash for JSON-LD, an external script, or a script inside noscript', () => {
     const extra =

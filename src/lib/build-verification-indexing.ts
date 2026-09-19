@@ -9,6 +9,7 @@
  * but nothing here depends on that.
  */
 
+import { parseEnv } from 'node:util';
 import {
   findElementContents,
   findTags,
@@ -28,6 +29,20 @@ function findRobotsMetaContents(liveHtml: string): string[] {
     .map(parseAttributes)
     .filter((attrs) => attrs.name?.toLowerCase() === 'robots')
     .map((attrs) => attrs.content ?? '');
+}
+
+/** `googlebot`, `bingbot` and the like: a crawler obeys its own robots meta on top of the generic one. */
+const CRAWLER_META_NAME = /^(?:googlebot(?:-[a-z]+)?|[a-z0-9-]*bot|slurp|yandex|baiduspider)$/;
+
+function findBlockingCrawlerMetaNames(liveHtml: string): string[] {
+  return findTags(liveHtml, ['meta'])
+    .map(parseAttributes)
+    .filter(
+      (attrs) =>
+        CRAWLER_META_NAME.test(attrs.name?.toLowerCase() ?? '') &&
+        blocksIndexing(attrs.content ?? ''),
+    )
+    .map((attrs) => attrs.name ?? '');
 }
 
 function findCanonicalHrefs(liveHtml: string): string[] {
@@ -260,8 +275,14 @@ export function checkIndexingPolicy(input: IndexingCheckInput): IndexingCheckRes
           `sitemap.xml must list exactly the homepage "${expected}", found ${JSON.stringify(locs)}.`,
         );
     }
-    if (robotsTagHeader !== undefined)
-      problems.push(`_headers' /* rule must not set X-Robots-Tag, found "${robotsTagHeader}".`);
+    for (const name of findBlockingCrawlerMetaNames(liveHomepage))
+      problems.push(`Homepage must not carry a <meta name="${name}"> that blocks indexing.`);
+    // Cloudflare combines every rule that matches a path, so no rule may set it.
+    for (const rule of headersRules) {
+      const value = getHeader(rule, 'X-Robots-Tag');
+      if (value !== undefined)
+        problems.push(`_headers' ${rule.path} rule must not set X-Robots-Tag, found "${value}".`);
+    }
   }
 
   const liveNotFound = stripInertMarkup(input.notFoundHtml);
@@ -298,6 +319,20 @@ export function checkIndexingPolicy(input: IndexingCheckInput): IndexingCheckRes
   }
 
   return { problems, indexable };
+}
+
+/**
+ * The raw `PUBLIC_SITE_URL` the build read: the shell wins even when empty,
+ * then the LAST dotenv file that sets it, in the order Vite loads them.
+ */
+export function effectivePublicSiteUrl(
+  shellValue: string | undefined,
+  dotenvTexts: readonly string[],
+): string | undefined {
+  if (shellValue !== undefined) return shellValue;
+  let value: string | undefined;
+  for (const text of dotenvTexts) value = parseEnv(text).PUBLIC_SITE_URL ?? value;
+  return value;
 }
 
 /**
