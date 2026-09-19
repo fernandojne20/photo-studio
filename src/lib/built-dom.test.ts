@@ -319,6 +319,17 @@ describe('source', () => {
 });
 
 describe('foreign content', () => {
+  it('keeps the prefix of a qualified SVG attribute, so xlink:href never poses as href', () => {
+    const both = '<svg><a href="/first" xlink:href="https://wa.me/1"></a></svg>';
+    const swapped = '<svg><a xlink:href="https://wa.me/1" href="/first"></a></svg>';
+    for (const html of [both, swapped]) {
+      const link = readLiveElements(html).find((element) => element.name === 'a');
+      expect(link?.attrs).toEqual({ href: '/first', 'xlink:href': 'https://wa.me/1' });
+    }
+    const use = readLiveElements('<svg><use xlink:href="#icon" xml:lang="es"></use></svg>')[1];
+    expect(use.attrs).toEqual({ 'xlink:href': '#icon', 'xml:lang': 'es' });
+  });
+
   it('reads an SVG <title> as an ordinary element with its own text', () => {
     const html = '<svg><title>Logo</title><foreignObject></foreignObject></svg>';
     const elements = readLiveElements(html);
