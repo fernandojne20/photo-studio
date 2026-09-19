@@ -1,30 +1,74 @@
 import { describe, expect, it } from 'vitest';
 import {
+  hasCssImport,
   countImages,
   extractAllFontFaceUrls,
+  extractCssFontFaceUrls,
   extractDynamicImportSpecifiers,
-  extractModuleScriptEntries,
+  extractEagerScriptEntries,
   extractPreloadedFontHrefs,
   extractStaticImportSpecifiers,
   extractStylesheetHrefs,
   resolveSpecifier,
 } from './build-measurement';
 
-describe('extractModuleScriptEntries', () => {
-  it('finds a module script src regardless of attribute order', () => {
+describe('extractEagerScriptEntries', () => {
+  it('finds a module script src regardless of attribute order, flagged as a module', () => {
+    expect(extractEagerScriptEntries('<script src="/_astro/a.js" type="module"></script>')).toEqual(
+      [{ src: '/_astro/a.js', isModule: true }],
+    );
+  });
+
+  it('finds a classic script with no type at all, flagged as not a module', () => {
+    expect(extractEagerScriptEntries('<script src="/a.js"></script>')).toEqual([
+      { src: '/a.js', isModule: false },
+    ]);
+  });
+
+  it('finds a classic script deferred or run async', () => {
+    expect(extractEagerScriptEntries('<script src="/a.js" defer></script>')).toEqual([
+      { src: '/a.js', isModule: false },
+    ]);
+    expect(extractEagerScriptEntries('<script src="/a.js" async></script>')).toEqual([
+      { src: '/a.js', isModule: false },
+    ]);
+  });
+
+  it('finds a classic script with an explicit text/javascript type', () => {
     expect(
-      extractModuleScriptEntries('<script src="/_astro/a.js" type="module"></script>'),
-    ).toEqual(['/_astro/a.js']);
+      extractEagerScriptEntries('<script src="/a.js" type="text/javascript"></script>'),
+    ).toEqual([{ src: '/a.js', isModule: false }]);
   });
 
-  it('ignores a non-module script', () => {
-    expect(extractModuleScriptEntries('<script src="/a.js"></script>')).toEqual([]);
-  });
-
-  it('finds every module script on the page', () => {
+  it('finds every executable script on the page, in document order', () => {
     const html =
-      '<script type="module" src="/a.js"></script><script type="module" src="/b.js"></script>';
-    expect(extractModuleScriptEntries(html)).toEqual(['/a.js', '/b.js']);
+      '<script type="module" src="/a.js"></script><script src="/b.js"></script>' +
+      '<script type="module" src="/c.js"></script>';
+    expect(extractEagerScriptEntries(html)).toEqual([
+      { src: '/a.js', isModule: true },
+      { src: '/b.js', isModule: false },
+      { src: '/c.js', isModule: true },
+    ]);
+  });
+
+  it('ignores importmap and speculationrules: never fetched scripts', () => {
+    expect(extractEagerScriptEntries('<script type="importmap" src="/a.json"></script>')).toEqual(
+      [],
+    );
+    expect(
+      extractEagerScriptEntries('<script type="speculationrules" src="/a.json"></script>'),
+    ).toEqual([]);
+  });
+
+  it('ignores a script with no src', () => {
+    expect(extractEagerScriptEntries('<script type="module">import("/a.js");</script>')).toEqual(
+      [],
+    );
+  });
+
+  it('does not crash on a cross-origin script, and excludes it from the eager set', () => {
+    expect(extractEagerScriptEntries('<script src="https://evil.test/x.js"></script>')).toEqual([]);
+    expect(extractEagerScriptEntries('<script src="//evil.test/x.js"></script>')).toEqual([]);
   });
 });
 
@@ -131,6 +175,60 @@ describe('extractAllFontFaceUrls', () => {
   it('never reads a @font-face block hidden inside a comment', () => {
     const html = '<!-- <style>@font-face{font-family:X;src:url("/a.woff2");}</style> -->';
     expect(extractAllFontFaceUrls(html)).toEqual([]);
+  });
+});
+
+describe('extractCssFontFaceUrls', () => {
+  it('resolves a relative url against the stylesheet own directory, not the page', () => {
+    const css = '@font-face{font-family:X;src:url("fonts/a.woff2") format("woff2");}';
+    expect(extractCssFontFaceUrls(css, '/_astro/style.css')).toEqual(['/_astro/fonts/a.woff2']);
+  });
+
+  it('resolves ../ against the stylesheet directory', () => {
+    const css = '@font-face{font-family:X;src:url(../fonts/a.woff2);}';
+    expect(extractCssFontFaceUrls(css, '/_astro/style.css')).toEqual(['/fonts/a.woff2']);
+  });
+
+  it('leaves a root-absolute url unresolved (never doubled against the css directory)', () => {
+    const css = '@font-face{font-family:X;src:url("/_astro/fonts/a.woff2");}';
+    expect(extractCssFontFaceUrls(css, '/_astro/style.css')).toEqual(['/_astro/fonts/a.woff2']);
+  });
+
+  it('names no file for a font that is not a file of this site', () => {
+    const css =
+      '@font-face{src:url("https://fonts.example/a.woff2")}@font-face{src:url(//cdn.test/b.woff2)}' +
+      '@font-face{src:url(data:font/woff2;base64,AAAA)}';
+    expect(extractCssFontFaceUrls(css, '/_astro/style.css')).toEqual([]);
+  });
+
+  it('drops a query and a fragment, which are not part of the file name', () => {
+    const css = '@font-face{src:url("fonts/icons.woff2?v=4.7.0#iefix") format("woff2")}';
+    expect(extractCssFontFaceUrls(css, '/vendor/icons.css')).toEqual(['/vendor/fonts/icons.woff2']);
+  });
+
+  it('reads CSS names in any case', () => {
+    const css = '@FONT-FACE{src:URL(c.woff2)}';
+    expect(extractCssFontFaceUrls(css, '/css/site.css')).toEqual(['/css/c.woff2']);
+  });
+
+  it('reads a stylesheet that is not minified', () => {
+    const css = '@font-face {\n  font-family: X;\n  src: url( "a.woff2" ) format("woff2");\n}\n';
+    expect(extractCssFontFaceUrls(css, '/css/site.css')).toEqual(['/css/a.woff2']);
+  });
+
+  it('collects urls from several @font-face blocks in the same file, deduplicated', () => {
+    const css =
+      '@font-face{font-family:X;src:url("a.woff2");}@font-face{font-family:Y;src:url("a.woff2");}';
+    expect(extractCssFontFaceUrls(css, '/_astro/style.css')).toEqual(['/_astro/a.woff2']);
+  });
+});
+
+describe('hasCssImport', () => {
+  it('sees an @import in any case, and not one inside a comment', () => {
+    expect(hasCssImport('@import url("fonts.css");body{margin:0}')).toBe(true);
+    expect(hasCssImport('@IMPORT "fonts.css";')).toBe(true);
+    expect(hasCssImport('/* @import "old.css"; */body{margin:0}')).toBe(false);
+    expect(hasCssImport('.important{color:red}')).toBe(false);
   });
 });
 

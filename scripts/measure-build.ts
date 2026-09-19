@@ -11,26 +11,33 @@ import { gzipSync } from 'node:zlib';
 import {
   countImages,
   extractAllFontFaceUrls,
+  extractCssFontFaceUrls,
   extractDynamicImportSpecifiers,
-  extractModuleScriptEntries,
+  extractEagerScriptEntries,
   extractPreloadedFontHrefs,
   extractStaticImportSpecifiers,
   extractStylesheetHrefs,
+  hasCssImport,
   resolveSpecifier,
 } from '../src/lib/build-measurement';
+import type { EagerScriptEntry } from '../src/lib/build-measurement';
 import { IMAGE_COUNT_KEY } from '../src/lib/performance-budgets';
 
-/** Walks only static edges from the entry points: what the browser must fetch before the page is interactive. */
-function buildEagerJsSet(distClient: string, entries: string[]): Map<string, Buffer> {
+/** Walks only static edges from the entry points: what the browser must fetch before the page is interactive. A classic script has no static imports to follow. */
+function buildEagerJsSet(
+  distClient: string,
+  entries: readonly EagerScriptEntry[],
+): Map<string, Buffer> {
   const files = new Map<string, Buffer>();
-  const queue = [...entries];
+  const queue: EagerScriptEntry[] = [...entries];
   while (queue.length > 0) {
-    const abs = queue.shift() as string;
-    if (files.has(abs)) continue;
-    const buffer = readFileSync(join(distClient, abs));
-    files.set(abs, buffer);
+    const entry = queue.shift() as EagerScriptEntry;
+    if (files.has(entry.src)) continue;
+    const buffer = readFileSync(join(distClient, entry.src));
+    files.set(entry.src, buffer);
+    if (!entry.isModule) continue;
     for (const spec of extractStaticImportSpecifiers(buffer.toString('utf8'))) {
-      queue.push(resolveSpecifier(abs, spec));
+      queue.push({ src: resolveSpecifier(entry.src, spec), isModule: true });
     }
   }
   return files;
@@ -73,17 +80,24 @@ function sumGzip(files: Iterable<Buffer>): number {
 
 /** Keys match the `name` column of `PERFORMANCE_BUDGETS`. */
 export function measureBuild(distClient: string, homepageHtml: string): Record<string, number> {
-  const entries = extractModuleScriptEntries(homepageHtml);
+  const entries = extractEagerScriptEntries(homepageHtml);
   const eagerJs = buildEagerJsSet(distClient, entries);
   const lazyJs = buildLazyJsSet(distClient, eagerJs);
-  const cssFiles = extractStylesheetHrefs(homepageHtml).map((href) =>
-    readFileSync(join(distClient, href)),
-  );
+  const stylesheetHrefs = extractStylesheetHrefs(homepageHtml);
+  const cssFiles = stylesheetHrefs.map((href) => readFileSync(join(distClient, href)));
   const preloadedFontBytes = extractPreloadedFontHrefs(homepageHtml).reduce(
     (total, href) => total + readFileSync(join(distClient, href)).byteLength,
     0,
   );
-  const totalFontBytes = extractAllFontFaceUrls(homepageHtml).reduce(
+  // A relative url(...) inside a linked stylesheet is relative to THAT file, not the page.
+  const fontUrls = new Set(extractAllFontFaceUrls(homepageHtml));
+  for (const [index, href] of stylesheetHrefs.entries()) {
+    const cssText = cssFiles[index].toString('utf8');
+    if (hasCssImport(cssText))
+      throw new Error(`${href} uses @import, which the budgets cannot follow: inline it.`);
+    for (const url of extractCssFontFaceUrls(cssText, href)) fontUrls.add(url);
+  }
+  const totalFontBytes = [...fontUrls].reduce(
     (total, href) => total + readFileSync(join(distClient, href)).byteLength,
     0,
   );

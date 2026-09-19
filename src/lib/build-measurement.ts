@@ -9,14 +9,27 @@
 
 import { posix } from 'node:path';
 import { hasRelToken, readLiveElements } from './built-dom';
+import { isCrossOrigin } from './resource-url';
+import { isExecutableScriptType, scriptTypeString } from './script-type';
 
-/** `<script type="module" src="...">` entries, in document order. */
-export function extractModuleScriptEntries(html: string): string[] {
-  const entries: string[] = [];
+export interface EagerScriptEntry {
+  src: string;
+  /** Only a module has static imports to follow. */
+  isModule: boolean;
+}
+
+/**
+ * Every executable external script, classic ones included: `defer` or not, the browser fetches it.
+ * A cross-origin one is the hygiene check's problem; here it is skipped so the measuring cannot crash.
+ */
+export function extractEagerScriptEntries(html: string): EagerScriptEntry[] {
+  const entries: EagerScriptEntry[] = [];
   for (const element of readLiveElements(html)) {
     if (element.name !== 'script') continue;
     const { attrs } = element;
-    if (attrs.type?.toLowerCase() === 'module' && attrs.src !== undefined) entries.push(attrs.src);
+    if (attrs.src === undefined || isCrossOrigin(attrs.src)) continue;
+    if (!isExecutableScriptType(attrs)) continue;
+    entries.push({ src: attrs.src, isModule: scriptTypeString(attrs) === 'module' });
   }
   return entries;
 }
@@ -68,21 +81,45 @@ export function extractPreloadedFontHrefs(html: string): string[] {
   return hrefs;
 }
 
-/** Every `url(...)` inside one `@font-face { ... }` block's own CSS text (a block may list several, e.g. woff2+ttf). */
+/**
+ * The font FILES one `@font-face` block names (it may list several, e.g. woff2 and ttf), without a
+ * query or fragment. A `data:` font is already inside the stylesheet's bytes; another origin's is not ours.
+ */
 function extractFontFaceUrls(fontFaceBody: string): string[] {
-  return [...fontFaceBody.matchAll(/url\(["']?([^"')]+)["']?\)/g)].map((match) => match[1]);
+  return [...fontFaceBody.matchAll(/url\(\s*["']?([^"')]+?)["']?\s*\)/gi)]
+    .map((match) => match[1])
+    .filter((url) => !isCrossOrigin(url))
+    .map((url) => url.replace(/[?#].*$/, ''));
 }
+
+const FONT_FACE_BLOCK = /@font-face\s*\{([^}]*)\}/gi;
 
 /** Every font URL referenced by any `@font-face` rule in any inline `<style>` block of the page. */
 export function extractAllFontFaceUrls(html: string): string[] {
   const urls = new Set<string>();
   for (const element of readLiveElements(html)) {
     if (element.name !== 'style') continue;
-    for (const block of element.text.matchAll(/@font-face\{([^}]*)\}/g)) {
+    for (const block of element.text.matchAll(FONT_FACE_BLOCK)) {
       for (const url of extractFontFaceUrls(block[1])) urls.add(url);
     }
   }
   return [...urls];
+}
+
+/** Font files of a linked stylesheet. A relative `url(...)` in a CSS file is relative to THAT file, not to the page. */
+export function extractCssFontFaceUrls(cssText: string, cssFilePath: string): string[] {
+  const urls = new Set<string>();
+  for (const block of cssText.matchAll(FONT_FACE_BLOCK)) {
+    for (const url of extractFontFaceUrls(block[1])) {
+      urls.add(url.startsWith('/') ? url : resolveSpecifier(cssFilePath, url));
+    }
+  }
+  return [...urls];
+}
+
+/** An `@import` would load a stylesheet that neither the CSS budget nor the font budget ever reads. */
+export function hasCssImport(cssText: string): boolean {
+  return /@import\b/i.test(cssText.replace(/\/\*[\s\S]*?\*\//g, ''));
 }
 
 /** Number of live `<img>` tags: what the HTML budget scales with. */

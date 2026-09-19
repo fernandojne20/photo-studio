@@ -1,76 +1,21 @@
 /**
- * Pure assertions on built page markup (PD-05/PD-06/VH-02): every conversion
- * link's analytics attributes, and page hygiene (image weight/laziness, no
- * cross-origin script or stylesheet). Everything reads through
- * `readLiveElements`, which already excludes a `<noscript>`, a `<template>`
- * and a comment, so a link hidden there is never mistaken for a real one.
+ * Pure assertions on built page markup: every conversion link's analytics
+ * attributes, and page hygiene (image weight and laziness, no cross-origin
+ * script or stylesheet). `analyticsEventForHref` is the SAME function the page
+ * uses to decide which links get the attributes, so the two cannot disagree.
  */
 
 import { hasRelToken, readLiveElements } from './built-dom';
-import { ANALYTICS_PLACEMENTS, MARKUP_ANALYTICS_EVENT_NAMES } from './analytics-events';
-import type { AnalyticsEventName } from './analytics-events';
+import {
+  ANALYTICS_PLACEMENTS,
+  MARKUP_ANALYTICS_EVENT_NAMES,
+  analyticsEventForHref,
+} from './analytics-events';
+import { isCrossOrigin } from './resource-url';
 import { site } from '../config/site';
 
-type LinkKind = 'whatsapp' | 'email' | 'phone' | 'instagram';
-const LINK_KIND_EVENT: Record<LinkKind, AnalyticsEventName> = {
-  whatsapp: 'whatsapp_click',
-  email: 'email_click',
-  phone: 'phone_click',
-  instagram: 'instagram_click',
-};
-/** `http:` counts too: the call to action schema accepts it and the link still reaches WhatsApp. */
-const WHATSAPP_HOSTS: ReadonlySet<string> = new Set(['wa.me', 'api.whatsapp.com']);
-
-/** By parsed host, as the browser resolves it: `https://wa.me?text=x` counts, `wa.me.evil.test` does not. */
-function isWhatsAppUrl(href: string): boolean {
-  try {
-    const { protocol, hostname } = new URL(href);
-    if (protocol === 'whatsapp:') return true;
-    return (protocol === 'https:' || protocol === 'http:') && WHATSAPP_HOSTS.has(hostname);
-  } catch {
-    return false;
-  }
-}
 const MARKUP_EVENT_SET: ReadonlySet<string> = new Set(MARKUP_ANALYTICS_EVENT_NAMES);
 const PLACEMENT_SET: ReadonlySet<string> = new Set(ANALYTICS_PLACEMENTS);
-
-/** Strips one trailing slash so `https://www.instagram.com/` and `https://www.instagram.com` compare equal. */
-function withoutTrailingSlash(url: string): string {
-  return url.endsWith('/') ? url.slice(0, -1) : url;
-}
-
-/**
- * Case-insensitive; the Instagram link must EQUAL the configured URL (one
- * trailing slash normalized), never merely start with it — a profile link
- * to someone else's page under the same host would otherwise pass.
- */
-/**
- * A browser strips tabs and line breaks from a URL, trims leading control
- * characters and spaces, and reads a backslash as a slash, all before it
- * looks at the scheme. Classify what the browser will actually follow.
- */
-function normalizeUrl(value: string): string {
-  const compact = value.replace(/[\t\n\r]/g, '');
-  let start = 0;
-  while (start < compact.length && compact.charCodeAt(start) <= 0x20) start += 1;
-  return compact.slice(start).replace(/\\/g, '/');
-}
-
-/** True for anything the browser would fetch from another origin, `//host/x` included. */
-function isCrossOrigin(url: string): boolean {
-  const normalized = normalizeUrl(url);
-  return normalized.startsWith('//') || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(normalized);
-}
-
-function classifyLinkKind(rawHref: string, instagramUrl: string): LinkKind | undefined {
-  const lower = normalizeUrl(rawHref).toLowerCase();
-  if (isWhatsAppUrl(rawHref)) return 'whatsapp';
-  if (lower.startsWith('mailto:')) return 'email';
-  if (lower.startsWith('tel:')) return 'phone';
-  if (withoutTrailingSlash(lower) === withoutTrailingSlash(instagramUrl.toLowerCase()))
-    return 'instagram';
-  return undefined;
-}
 
 /**
  * Asserts, on one built page (outside `<noscript>`): every WhatsApp/mailto/
@@ -87,9 +32,8 @@ export function checkAnalyticsMarkup(html: string): string[] {
     if (element.name !== 'a') continue;
     const { attrs } = element;
     if (attrs.href === undefined) continue;
-    const kind = classifyLinkKind(attrs.href, instagramUrl);
-    if (!kind) continue;
-    const expectedEvent = LINK_KIND_EVENT[kind];
+    const expectedEvent = analyticsEventForHref(attrs.href, instagramUrl);
+    if (!expectedEvent) continue;
     const event = attrs['data-analytics-event'];
     const placement = attrs['data-analytics-placement'];
     if (event !== expectedEvent)
@@ -107,11 +51,11 @@ export function checkAnalyticsMarkup(html: string): string[] {
     const event = attrs['data-analytics-event'];
     const placement = attrs['data-analytics-placement'];
     if (event === undefined && placement === undefined) continue;
-    const kind =
+    const expectedEvent =
       element.name === 'a' && attrs.href !== undefined
-        ? classifyLinkKind(attrs.href, instagramUrl)
+        ? analyticsEventForHref(attrs.href, instagramUrl)
         : undefined;
-    if (!kind || (event !== undefined && !MARKUP_EVENT_SET.has(event))) {
+    if (!expectedEvent || (event !== undefined && !MARKUP_EVENT_SET.has(event))) {
       problems.push(
         `Unexpected data-analytics-* attribute on a non-conversion element: ${element.source.slice(0, 160)}`,
       );

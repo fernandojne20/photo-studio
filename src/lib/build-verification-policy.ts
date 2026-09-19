@@ -14,6 +14,7 @@ import { readLiveElements } from './built-dom';
 import type { LiveElement } from './built-dom';
 import { getHeader, parseHeadersFile } from './headers-file';
 import { CSP_DIRECTIVES, SCRIPT_RESOURCES, STYLE_RESOURCES } from './security-headers.mjs';
+import { isExecutableScriptType, scriptTypeString } from './script-type';
 
 interface CspDirective {
   name: string;
@@ -243,46 +244,19 @@ function compareHeaderToPages(
   return problems;
 }
 
-/** The HTML standard's JavaScript MIME type essence strings, the whole closed list. */
-const JAVASCRIPT_MIME_TYPES: ReadonlySet<string> = new Set([
-  'application/ecmascript',
-  'application/javascript',
-  'application/x-ecmascript',
-  'application/x-javascript',
-  'text/ecmascript',
-  'text/javascript',
-  'text/javascript1.0',
-  'text/javascript1.1',
-  'text/javascript1.2',
-  'text/javascript1.3',
-  'text/javascript1.4',
-  'text/javascript1.5',
-  'text/jscript',
-  'text/livescript',
-  'text/x-ecmascript',
-  'text/x-javascript',
-]);
-
-/** Not JavaScript MIME types, yet inline content the policy has to allow. */
-const OTHER_CHECKED_SCRIPT_TYPES: ReadonlySet<string> = new Set([
-  'module',
-  'importmap',
-  'speculationrules',
-]);
+/** Not JavaScript MIME types, yet inline content the policy still has to allow. */
+const OTHER_CHECKED_SCRIPT_TYPES: ReadonlySet<string> = new Set(['importmap', 'speculationrules']);
 
 /**
- * Follows the standard's "script block's type string": an empty or absent
- * `type` is JavaScript unless a non-empty `language` says otherwise. A
- * parameter after `;` is dropped, because asking for a hash once too often
- * is the safe side. Any other type is a data block, which never runs.
+ * Every script that executes (module or classic JavaScript, via
+ * {@link isExecutableScriptType}) needs a hash, plus `importmap` and
+ * `speculationrules`, which browsers still subject to `script-src` even
+ * though they never run as a program. Any other type is a data block, which
+ * never runs.
  */
 function inlineScriptNeedsHash(attrs: Record<string, string>): boolean {
   if (attrs.src !== undefined) return false;
-  const { type, language } = attrs;
-  let typeString = 'text/javascript';
-  if (type !== undefined && type !== '') typeString = type.split(';')[0].trim().toLowerCase();
-  else if (type === undefined && language) typeString = `text/${language.toLowerCase()}`;
-  return JAVASCRIPT_MIME_TYPES.has(typeString) || OTHER_CHECKED_SCRIPT_TYPES.has(typeString);
+  return isExecutableScriptType(attrs) || OTHER_CHECKED_SCRIPT_TYPES.has(scriptTypeString(attrs));
 }
 
 function sha256Token(content: string): string {

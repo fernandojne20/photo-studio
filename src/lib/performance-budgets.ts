@@ -39,7 +39,7 @@ export const PERFORMANCE_BUDGETS: readonly BudgetDefinition[] = [
   {
     name: 'eager-js-gzip',
     description:
-      'Eager JavaScript (module scripts of the homepage plus their static imports), gzip',
+      "Eager JavaScript (every executable external script of the homepage, module or classic, plus a module one's static imports), gzip",
     limit: 24_000,
     min: 1,
     unit: 'bytes',
@@ -64,7 +64,8 @@ export const PERFORMANCE_BUDGETS: readonly BudgetDefinition[] = [
   },
   {
     name: 'eager-js-file-count',
-    description: 'Number of eager script files (module scripts plus their static imports)',
+    description:
+      "Number of eager script files (every executable external script, module or classic, plus a module one's static imports)",
     limit: 6,
     min: 1,
     unit: 'count',
@@ -82,7 +83,8 @@ export const PERFORMANCE_BUDGETS: readonly BudgetDefinition[] = [
   },
   {
     name: 'total-font-bytes',
-    description: 'Total bytes of every font file the homepage references',
+    description:
+      'Total bytes of every font file the homepage references, from @font-face rules in its inline styles and in its linked stylesheets alike',
     limit: 735_000,
     min: 1,
     unit: 'bytes',

@@ -309,7 +309,37 @@ describe('analyticsEventForHref', () => {
     ['ftp://wa.me/1'],
     ['wa.me/1'],
     [''],
+    ['https://wa.me/1\0'],
+    ['mailto:hola@example.com\uFFFD'],
   ])('gives no event to %s', (href) => {
     expect(analyticsEventForHref(href, instagram)).toBeUndefined();
+  });
+
+  it.each([
+    ['upper case', 'HTTPS://WWW.INSTAGRAM.COM/LAURYHERRERA'],
+    ['http:, which still reaches the profile', 'http://www.instagram.com/lauryherrera'],
+    ['no www.', 'https://instagram.com/lauryherrera'],
+    ['a tracking query copied from the app', 'https://www.instagram.com/lauryherrera?igsh=abc'],
+    ['a fragment', 'https://www.instagram.com/lauryherrera#x'],
+    ['the explicit default port', 'https://www.instagram.com:443/lauryherrera'],
+  ])('still recognizes the configured profile written with %s', (_label, href) => {
+    expect(analyticsEventForHref(href, instagram)).toBe('instagram_click');
+  });
+
+  it.each([
+    ['a deeper path under the same profile', 'https://www.instagram.com/lauryherrera/reel/abc'],
+    ['a non-default port', 'https://www.instagram.com:8443/lauryherrera'],
+    ['the exact same path on a different host', 'https://evil.test/lauryherrera'],
+  ])('does not recognize %s as the configured profile', (_label, href) => {
+    expect(analyticsEventForHref(href, instagram)).toBeUndefined();
+  });
+
+  it('matches the bare placeholder only at its own root, with or without a trailing slash', () => {
+    const placeholder = 'https://www.instagram.com/';
+    expect(analyticsEventForHref('https://www.instagram.com', placeholder)).toBe('instagram_click');
+    expect(analyticsEventForHref('https://www.instagram.com/', placeholder)).toBe(
+      'instagram_click',
+    );
+    expect(analyticsEventForHref('https://www.instagram.com/someone', placeholder)).toBeUndefined();
   });
 });

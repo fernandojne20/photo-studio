@@ -180,6 +180,21 @@ describe('checkIndexingPolicy — indexable', () => {
     expect(result).toEqual({ problems: [], indexable: true });
   });
 
+  it('ignores a sitemap <url> entry hidden inside an XML comment', () => {
+    const result = checkIndexingPolicy({
+      mode: 'indexable',
+      origin: ORIGIN,
+      homepageHtml: indexableHomepage(),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: `${ROBOTS_TXT}Sitemap: ${ORIGIN}/sitemap.xml\n`,
+      sitemapXml: `<urlset><!-- <url><loc>${ORIGIN}/</loc></url> --></urlset>`,
+      headersText: HEADERS_INDEXABLE,
+    });
+    expect(result.problems).toContain(
+      `sitemap.xml must list exactly the homepage "${ORIGIN}/", found [].`,
+    );
+  });
+
   it('flags a missing sitemap.xml (the sitemap.xml.ts ignoring the URL mutation)', () => {
     const result = checkIndexingPolicy({
       mode: 'indexable',
@@ -627,11 +642,28 @@ describe('directives are read as crawlers read them', () => {
     },
   );
 
-  it('accepts a Disallow that an equally specific Allow overrides, and one that does not match the homepage', () => {
+  it('accepts a Disallow that an equally specific Allow overrides for the homepage, and one that does not match it', () => {
     expect(
       nonIndexable({
         robotsTxt: `${ROBOTS_TXT}\nUser-agent: Bingbot\nAllow: /\nDisallow: /\nDisallow: /privado/*.pdf$\n`,
       }),
+      // The same Allow: / / Disallow: / tie that clears the homepage also
+      // ties for /api/ (equally specific, Allow wins), and this group has no
+      // Disallow: /api/ of its own: /api/ is genuinely left open for it.
+    ).toEqual(['robots.txt must disallow "/api/" for bingbot too.']);
+  });
+
+  it('leaves "/api/" open when a group Allows it exactly as it Disallows it', () => {
+    expect(
+      nonIndexable({
+        robotsTxt: `${ROBOTS_TXT}\nUser-agent: Bingbot\nAllow: /\nAllow: /api/\nDisallow: /api/\n`,
+      }),
+    ).toEqual(['robots.txt must disallow "/api/" for bingbot too.']);
+  });
+
+  it('closes "/api/" for the * group itself by the same longest-match decision, not a literal rule', () => {
+    expect(
+      nonIndexable({ robotsTxt: 'User-agent: *\nAllow: /\nAllow: /api/*.png$\nDisallow: /api/\n' }),
     ).toEqual([]);
   });
 

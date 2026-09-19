@@ -10,6 +10,7 @@
  */
 
 import type { ContactResponseOutcome } from './contact-form-state';
+import { normalizeUrl } from './resource-url';
 
 export type AnalyticsEventName =
   | 'whatsapp_click'
@@ -108,12 +109,33 @@ function isWhatsAppUrl(href: string): boolean {
   }
 }
 
-/** A URL as the browser resolves it: no tabs or line breaks, no leading spaces, `\` as `/`, lowercased. */
-function normalizeHref(href: string): string {
-  const compact = href.replace(/[\t\n\r]/g, '');
-  let start = 0;
-  while (start < compact.length && compact.charCodeAt(start) <= 0x20) start += 1;
-  return compact.slice(start).replace(/\\/g, '/').toLowerCase();
+/** Host without one optional leading `www.`, lowercased: a copied profile link may or may not carry it. */
+function bareHost(hostname: string): string {
+  const lower = hostname.toLowerCase();
+  return lower.startsWith('www.') ? lower.slice(4) : lower;
+}
+
+/**
+ * The configured profile however it was copied: `http:` or `https:`, with or without `www.`, any
+ * case, a trailing slash, a tracking query such as `?igsh=`. The PATH must be equal, never a
+ * prefix: a reel of the profile, or another account, is not the profile.
+ */
+function isConfiguredInstagramProfile(href: string, instagramUrl: string): boolean {
+  let link: URL;
+  let configured: URL;
+  try {
+    link = new URL(href);
+    configured = new URL(instagramUrl);
+  } catch {
+    return false;
+  }
+  const isHttpFamily = (url: URL) => url.protocol === 'http:' || url.protocol === 'https:';
+  if (!isHttpFamily(link) || !isHttpFamily(configured)) return false;
+  // `URL` reads a default port as '', so anything left is a port that is not Instagram's.
+  if (link.port !== '' || configured.port !== '') return false;
+  if (bareHost(link.hostname) !== bareHost(configured.hostname)) return false;
+  const barePath = (url: URL) => url.pathname.toLowerCase().replace(/\/+$/, '');
+  return barePath(link) === barePath(configured);
 }
 
 /**
@@ -125,12 +147,14 @@ export function analyticsEventForHref(
   href: string,
   instagramUrl: string,
 ): LinkAnalyticsEvent | undefined {
-  const url = normalizeHref(href);
+  // The HTML parser turns a NUL into U+FFFD while `URL` drops a trailing one, so the page and the
+  // verifier would read two different links. Neither is a link an editor can type.
+  if (href.includes('\0') || href.includes('\uFFFD')) return undefined;
+  const url = normalizeUrl(href).toLowerCase();
   if (isWhatsAppUrl(href)) return 'whatsapp_click';
   if (url.startsWith('mailto:')) return 'email_click';
   if (url.startsWith('tel:')) return 'phone_click';
-  const trim = (value: string) => value.replace(/\/$/, '');
-  if (trim(url) === trim(normalizeHref(instagramUrl))) return 'instagram_click';
+  if (isConfiguredInstagramProfile(href, instagramUrl)) return 'instagram_click';
   return undefined;
 }
 
