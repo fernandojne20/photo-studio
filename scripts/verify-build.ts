@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import {
   checkEnvironmentConsistency,
   checkIndexingPolicy,
+  effectivePublicSiteUrl,
   type Mode,
 } from '../src/lib/build-verification-indexing';
 // PR2: the Content Security Policy relation, and per-page markup/hygiene.
@@ -62,6 +63,9 @@ function parseArgs(argv: string[]): Args {
   }
   return { mode, origin };
 }
+
+/** The dotenv files `astro build` reads, in Vite's order; only PUBLIC_SITE_URL is taken from them. */
+const DOTENV_FILES = ['.env', '.env.local', '.env.production', '.env.production.local'];
 
 function readText(filePath: string): string | undefined {
   try {
@@ -127,7 +131,10 @@ function main(): void {
     ...safely('environment consistency', () =>
       checkEnvironmentConsistency({
         mode: args.mode,
-        publicSiteUrlRaw: process.env.PUBLIC_SITE_URL,
+        publicSiteUrlRaw: effectivePublicSiteUrl(
+          process.env.PUBLIC_SITE_URL,
+          DOTENV_FILES.map((file) => readText(join(process.cwd(), file)) ?? ''),
+        ),
         indexable,
       }),
     ),
