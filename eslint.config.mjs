@@ -49,7 +49,8 @@ export default defineConfig(
   },
   {
     // Node-only entry points: CLI scripts and build/config files.
-    files: ['scripts/**', '*.config.{js,mjs,ts}'],
+    // `src/lib/**/*.mjs` is plain Node code shared by `astro.config.mjs` and the tests.
+    files: ['scripts/**', '*.config.{js,mjs,ts}', 'src/lib/**/*.mjs'],
     languageOptions: {
       globals: {
         ...globals.node,
