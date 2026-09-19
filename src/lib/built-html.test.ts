@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   findElementContents,
   findTags,
+  hasRelToken,
   getHeader,
   parseAttributes,
   parseHeadersFile,
@@ -316,5 +317,32 @@ describe('details of the HTML tokenizer that checks rely on', () => {
     expect(parseAttributes('<a title="&bogus; &#0; &#x110000;">').title).toBe(
       '&bogus; &#0; &#x110000;',
     );
+  });
+});
+
+describe('attributes as the HTML parser reads them', () => {
+  it('decodes a numeric character reference without its semicolon', () => {
+    expect(parseAttributes('<script src="&#104ttps://evil.test/x.js">').src).toBe(
+      'https://evil.test/x.js',
+    );
+    expect(parseAttributes('<a href="mail&#x74o:x@example.com">').href).toBe(
+      'mailto:x@example.com',
+    );
+  });
+
+  it('does not decode a named reference without its semicolon', () => {
+    expect(parseAttributes('<a href="/x?a=1&amp=2&colon">').href).toBe('/x?a=1&amp=2&colon');
+  });
+
+  it('keeps the first of two attributes with the same name', () => {
+    expect(parseAttributes(`<meta content="first" CONTENT="second">`).content).toBe('first');
+  });
+
+  it('reads rel as a token list, whatever the case or spacing', () => {
+    expect(hasRelToken(parseAttributes('<link rel="alternate  StyleSheet">'), 'stylesheet')).toBe(
+      true,
+    );
+    expect(hasRelToken(parseAttributes('<link rel="stylesheets">'), 'stylesheet')).toBe(false);
+    expect(hasRelToken(parseAttributes('<link href="/x">'), 'stylesheet')).toBe(false);
   });
 });

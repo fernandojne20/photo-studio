@@ -6,7 +6,7 @@
  * hidden inside `<noscript>` is never mistaken for a real one.
  */
 
-import { findTags, parseAttributes, stripInertMarkup } from './built-html';
+import { findTags, hasRelToken, parseAttributes, stripInertMarkup } from './built-html';
 import { ANALYTICS_PLACEMENTS, MARKUP_ANALYTICS_EVENT_NAMES } from './analytics-events';
 import type { AnalyticsEventName } from './analytics-events';
 import { site } from '../config/site';
@@ -119,7 +119,7 @@ export function checkPageHygiene(html: string): string[] {
       problems.push(`Script from another origin: ${attrs.src}`);
   }
   for (const attrs of findTags(live, ['link']).map(parseAttributes)) {
-    if (attrs.rel?.toLowerCase() !== 'stylesheet') continue;
+    if (!hasRelToken(attrs, 'stylesheet')) continue;
     if (attrs.href && isCrossOrigin(attrs.href))
       problems.push(`Stylesheet from another origin: ${attrs.href}`);
   }

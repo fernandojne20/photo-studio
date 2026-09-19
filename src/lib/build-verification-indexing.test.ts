@@ -412,3 +412,105 @@ describe('a forbidden tag is forbidden even when it is empty', () => {
     expect(problemsFor({}, notFound)).toEqual(['404 page must have no canonical link.']);
   });
 });
+
+describe('directives are read as crawlers read them', () => {
+  const ORIGIN = 'https://www.example.com';
+  const indexableHomepage = () =>
+    homepage({
+      robots: '<meta name="robots" content="index, follow">',
+      canonical: `<link rel="canonical" href="${ORIGIN}/">`,
+      ogUrl: `<meta property="og:url" content="${ORIGIN}/">`,
+    });
+  const base = {
+    notFoundHtml: NOT_FOUND_OK,
+    sitemapXml: undefined,
+    headersText: HEADERS_NON_INDEXABLE,
+  } as const;
+  const nonIndexable = (overrides: {
+    homepageHtml?: string;
+    robotsTxt?: string;
+    notFoundHtml?: string;
+  }) =>
+    checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml: homepage(),
+      robotsTxt: ROBOTS_TXT,
+      ...base,
+      ...overrides,
+    }).problems;
+
+  it('sees a canonical declared with two rel tokens', () => {
+    expect(
+      nonIndexable({
+        homepageHtml: homepage({
+          canonical: '<link rel="alternate canonical" href="https://x.test/">',
+        }),
+      }),
+    ).toEqual(['Homepage must have no canonical link, found "https://x.test/".']);
+  });
+
+  it.each([['/*'], ['*'], ['/$'], ['/*$']])(
+    'rejects a crawler group whose Disallow %s matches the homepage',
+    (pattern) => {
+      expect(
+        nonIndexable({ robotsTxt: `${ROBOTS_TXT}\nUser-agent: Bingbot\nDisallow: ${pattern}\n` }),
+      ).toEqual(['robots.txt must not disallow "/" in either mode, found it for bingbot.']);
+    },
+  );
+
+  it('accepts a Disallow that an equally specific Allow overrides, and one that does not match the homepage', () => {
+    expect(
+      nonIndexable({
+        robotsTxt: `${ROBOTS_TXT}\nUser-agent: Bingbot\nAllow: /\nDisallow: /\nDisallow: /privado/*.pdf$\n`,
+      }),
+    ).toEqual([]);
+  });
+
+  it('does not take noindexing or not-noindex for noindex on the 404 page', () => {
+    const notFound = NOT_FOUND_OK.replace(/content="[^"]*"/, 'content="noindexing, not-noindex"');
+    expect(notFound).not.toBe(NOT_FOUND_OK);
+    expect(nonIndexable({ notFoundHtml: notFound })).toEqual([
+      '404 page robots meta must be noindex, found "noindexing, not-noindex".',
+    ]);
+  });
+
+  it('accepts NOINDEX in any case and the none directive', () => {
+    expect(
+      nonIndexable({
+        notFoundHtml: NOT_FOUND_OK.replace(/content="[^"]*"/, 'content="NoIndex , follow"'),
+      }),
+    ).toEqual([]);
+    expect(
+      nonIndexable({ notFoundHtml: NOT_FOUND_OK.replace(/content="[^"]*"/, 'content="none"') }),
+    ).toEqual([]);
+  });
+
+  it('does not count a commented Sitemap line, in either direction', () => {
+    expect(
+      nonIndexable({ robotsTxt: `${ROBOTS_TXT}# Sitemap: https://x.test/sitemap.xml\n` }),
+    ).toEqual([]);
+    const indexable = checkIndexingPolicy({
+      mode: 'indexable',
+      origin: ORIGIN,
+      homepageHtml: indexableHomepage(),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: `${ROBOTS_TXT}# Sitemap: ${ORIGIN}/sitemap.xml\n`,
+      sitemapXml: `<urlset><url><loc>${ORIGIN}/</loc></url></urlset>`,
+      headersText: HEADERS_INDEXABLE,
+    });
+    expect(indexable.problems).toEqual([`robots.txt must have "Sitemap: ${ORIGIN}/sitemap.xml".`]);
+  });
+
+  it('reads the Sitemap key in any case', () => {
+    const indexable = checkIndexingPolicy({
+      mode: 'indexable',
+      origin: ORIGIN,
+      homepageHtml: indexableHomepage(),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: `${ROBOTS_TXT}SITEMAP: ${ORIGIN}/sitemap.xml\n`,
+      sitemapXml: `<urlset><url><loc>${ORIGIN}/</loc></url></urlset>`,
+      headersText: HEADERS_INDEXABLE,
+    });
+    expect(indexable.problems).toEqual([]);
+  });
+});
