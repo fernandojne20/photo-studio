@@ -239,12 +239,47 @@ function compareHeaderToPages(
   return problems;
 }
 
-const EXECUTABLE_SCRIPT_TYPES: ReadonlySet<string> = new Set([
-  '',
-  'module',
-  'text/javascript',
+/** The HTML standard's JavaScript MIME type essence strings, the whole closed list. */
+const JAVASCRIPT_MIME_TYPES: ReadonlySet<string> = new Set([
+  'application/ecmascript',
   'application/javascript',
+  'application/x-ecmascript',
+  'application/x-javascript',
+  'text/ecmascript',
+  'text/javascript',
+  'text/javascript1.0',
+  'text/javascript1.1',
+  'text/javascript1.2',
+  'text/javascript1.3',
+  'text/javascript1.4',
+  'text/javascript1.5',
+  'text/jscript',
+  'text/livescript',
+  'text/x-ecmascript',
+  'text/x-javascript',
 ]);
+
+/** Not JavaScript MIME types, yet inline content the policy has to allow. */
+const OTHER_CHECKED_SCRIPT_TYPES: ReadonlySet<string> = new Set([
+  'module',
+  'importmap',
+  'speculationrules',
+]);
+
+/**
+ * Follows the standard's "script block's type string": an empty or absent
+ * `type` is JavaScript unless a non-empty `language` says otherwise. A
+ * parameter after `;` is dropped, because asking for a hash once too often
+ * is the safe side. Any other type is a data block, which never runs.
+ */
+function inlineScriptNeedsHash(attrs: Record<string, string>): boolean {
+  if (attrs.src !== undefined) return false;
+  const { type, language } = attrs;
+  let typeString = 'text/javascript';
+  if (type !== undefined && type !== '') typeString = type.split(';')[0].trim().toLowerCase();
+  else if (type === undefined && language) typeString = `text/${language.toLowerCase()}`;
+  return JAVASCRIPT_MIME_TYPES.has(typeString) || OTHER_CHECKED_SCRIPT_TYPES.has(typeString);
+}
 
 function sha256Token(content: string): string {
   return `'sha256-${createHash('sha256').update(content).digest('base64')}'`;
@@ -267,12 +302,7 @@ function checkInlineContentHashes(
   const scriptTokens = tokensOf('script-src');
   const styleTokens = tokensOf('style-src');
 
-  const scripts = findElementContents(
-    liveHtml,
-    ['script'],
-    (attrs) =>
-      attrs.src === undefined && EXECUTABLE_SCRIPT_TYPES.has((attrs.type ?? '').toLowerCase()),
-  );
+  const scripts = findElementContents(liveHtml, ['script'], inlineScriptNeedsHash);
   for (const [index, content] of scripts.entries()) {
     if (!scriptTokens.has(sha256Token(content)))
       problems.push(`${where}: inline script ${index} has no matching hash in script-src.`);
@@ -287,8 +317,14 @@ function checkInlineContentHashes(
 /** Every security header, and the policy itself, must sit under `_headers`' `/*` rule, not only `/_astro/*`. */
 function checkHeadersScope(headersText: string): string[] {
   const problems: string[] = [];
-  const staticRule = parseHeadersFile(headersText).find((rule) => rule.path === '/*');
+  const staticRules = parseHeadersFile(headersText).filter((rule) => rule.path === '/*');
+  const [staticRule] = staticRules;
   if (!staticRule) return ['_headers has no /* rule.'];
+  if (staticRules.length > 1)
+    problems.push(`_headers must have exactly one /* rule, found ${staticRules.length}.`);
+  // `! Name` under a narrower rule removes, for those paths, a header that /* set.
+  if (headersText.split('\n').some((line) => line.trim().startsWith('!')))
+    problems.push('_headers must not detach a header (a line starting with "!").');
   for (const name of [...REQUIRED_HEADER_NAMES, 'Content-Security-Policy']) {
     if (getHeader(staticRule, name) === undefined)
       problems.push(`_headers' /* rule is missing the ${name} header.`);

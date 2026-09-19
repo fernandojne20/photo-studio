@@ -18,7 +18,14 @@ const LINK_KIND_EVENT: Record<LinkKind, AnalyticsEventName> = {
   phone: 'phone_click',
   instagram: 'instagram_click',
 };
-const WHATSAPP_PREFIXES = ['https://wa.me/', 'https://api.whatsapp.com/', 'whatsapp:'];
+/** The call to action schema accepts `http:` too, and those links still reach WhatsApp. */
+const WHATSAPP_PREFIXES = [
+  'https://wa.me/',
+  'http://wa.me/',
+  'https://api.whatsapp.com/',
+  'http://api.whatsapp.com/',
+  'whatsapp:',
+];
 const MARKUP_EVENT_SET: ReadonlySet<string> = new Set(MARKUP_ANALYTICS_EVENT_NAMES);
 const PLACEMENT_SET: ReadonlySet<string> = new Set(ANALYTICS_PLACEMENTS);
 
@@ -44,10 +51,18 @@ function normalizeUrl(value: string): string {
   return compact.slice(start).replace(/\\/g, '/');
 }
 
-/** True for anything the browser would fetch from another origin, `//host/x` included. */
+/**
+ * True for anything the browser would fetch from another origin, `//host/x`
+ * included. A named reference this reader does not decode could stand for
+ * any character, so a URL that still carries one counts as cross-origin.
+ */
 function isCrossOrigin(url: string): boolean {
   const normalized = normalizeUrl(url);
-  return normalized.startsWith('//') || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(normalized);
+  return (
+    normalized.startsWith('//') ||
+    /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(normalized) ||
+    /&[a-zA-Z][a-zA-Z0-9]*;/.test(normalized)
+  );
 }
 
 function classifyLinkKind(rawHref: string, instagramUrl: string): LinkKind | undefined {
@@ -122,6 +137,12 @@ export function checkPageHygiene(html: string): string[] {
     if (!hasRelToken(attrs, 'stylesheet')) continue;
     if (attrs.href && isCrossOrigin(attrs.href))
       problems.push(`Stylesheet from another origin: ${attrs.href}`);
+  }
+
+  // A `<base href>` moves every relative URL, so `src="x.js"` could leave the origin.
+  for (const attrs of findTags(live, ['base']).map(parseAttributes)) {
+    if (attrs.href !== undefined)
+      problems.push(`<base href="${attrs.href}"> is not allowed: it re-points every relative URL.`);
   }
 
   const imgAttrs = findTags(live, ['img']).map(parseAttributes);
