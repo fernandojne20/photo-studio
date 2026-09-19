@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { checkContentSecurityPolicy } from './build-verification-policy';
 
@@ -243,5 +244,43 @@ describe('every delivered policy is enforced', () => {
     expect(checkContentSecurityPolicy({ pageHtmls: [html], headersText: headersText() })).toEqual(
       [],
     );
+  });
+});
+
+describe('inline content must be allowed by the page policy', () => {
+  const sha = (content: string) =>
+    `'sha256-${createHash('sha256').update(content).digest('base64')}'`;
+  const SCRIPT = 'import("/_astro/x.js");';
+  const STYLE = '@font-face{font-family:x}';
+  const policyWith = (scriptHash: string, styleHash: string) =>
+    COMPLIANT_POLICY.replace("'sha256-aaa='", scriptHash).replace("'sha256-bbb='", styleHash);
+  const run = (policy: string, body: string) =>
+    checkContentSecurityPolicy({
+      pageHtmls: [`${page(policy)}${body}`],
+      headersText: headersText({ csp: `${policy}; frame-ancestors 'none'` }),
+    });
+  const body = `<script type="module">${SCRIPT}</script><style>${STYLE}</style>`;
+
+  it('passes when every inline script and style has its hash', () => {
+    expect(run(policyWith(sha(SCRIPT), sha(STYLE)), body)).toEqual([]);
+  });
+
+  it('fails when the hash of an inline script is missing', () => {
+    expect(run(policyWith("'sha256-other='", sha(STYLE)), body)).toEqual([
+      'page 0 policy: inline script 0 has no matching hash in script-src.',
+    ]);
+  });
+
+  it('fails when the hash of an inline style is missing', () => {
+    expect(run(policyWith(sha(SCRIPT), "'sha256-other='"), body)).toEqual([
+      'page 0 policy: inline style 0 has no matching hash in style-src.',
+    ]);
+  });
+
+  it('does not ask for a hash for JSON-LD, an external script, or a script inside noscript', () => {
+    const extra =
+      '<script type="application/ld+json">{"a":1}</script><script type="module" src="/_astro/y.js"></script>' +
+      '<noscript><script>blocked()</script></noscript>';
+    expect(run(policyWith(sha(SCRIPT), sha(STYLE)), body + extra)).toEqual([]);
   });
 });

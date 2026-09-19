@@ -9,7 +9,9 @@
  * browsers ignore token order and enforce only the FIRST of two directives.
  */
 
+import { createHash } from 'node:crypto';
 import {
+  findElementContents,
   findTags,
   getHeader,
   parseAttributes,
@@ -237,6 +239,51 @@ function compareHeaderToPages(
   return problems;
 }
 
+const EXECUTABLE_SCRIPT_TYPES: ReadonlySet<string> = new Set([
+  '',
+  'module',
+  'text/javascript',
+  'application/javascript',
+]);
+
+function sha256Token(content: string): string {
+  return `'sha256-${createHash('sha256').update(content).digest('base64')}'`;
+}
+
+/**
+ * Every inline script that executes and every inline style must be allowed
+ * by a hash of the page's own policy. If the hashes were ever dropped, the
+ * two policies would still agree with each other and the browser would
+ * block the page's own code. Data blocks such as JSON-LD are not executed.
+ */
+function checkInlineContentHashes(
+  liveHtml: string,
+  directives: readonly CspDirective[],
+  where: string,
+): string[] {
+  const problems: string[] = [];
+  const tokensOf = (name: string) =>
+    new Set(directives.find((directive) => directive.name === name)?.tokens ?? []);
+  const scriptTokens = tokensOf('script-src');
+  const styleTokens = tokensOf('style-src');
+
+  const scripts = findElementContents(
+    liveHtml,
+    ['script'],
+    (attrs) =>
+      attrs.src === undefined && EXECUTABLE_SCRIPT_TYPES.has((attrs.type ?? '').toLowerCase()),
+  );
+  for (const [index, content] of scripts.entries()) {
+    if (!scriptTokens.has(sha256Token(content)))
+      problems.push(`${where}: inline script ${index} has no matching hash in script-src.`);
+  }
+  for (const [index, content] of findElementContents(liveHtml, ['style']).entries()) {
+    if (!styleTokens.has(sha256Token(content)))
+      problems.push(`${where}: inline style ${index} has no matching hash in style-src.`);
+  }
+  return problems;
+}
+
 /** Every security header, and the policy itself, must sit under `_headers`' `/*` rule, not only `/_astro/*`. */
 function checkHeadersScope(headersText: string): string[] {
   const problems: string[] = [];
@@ -277,6 +324,9 @@ export function checkContentSecurityPolicy(input: {
     const directives = parseCspContent(content);
     pagesDirectives.push(directives);
     problems.push(...checkPolicyFloor(directives, `page ${pageIndex} policy`));
+    problems.push(
+      ...checkInlineContentHashes(stripInertMarkup(html), directives, `page ${pageIndex} policy`),
+    );
     problems.push(...compareToSource(directives, `page ${pageIndex} policy`));
   }
 

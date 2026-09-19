@@ -134,6 +134,14 @@ describe('links and resources as the browser resolves them', () => {
     ['a backslash protocol-relative script', '<script src="\\\\evil.test/x.js"></script>'],
     ['a protocol-relative stylesheet', '<link rel="stylesheet" href="//evil.test/x.css">'],
     ['a data: script', '<script src="data:text/javascript,alert(1)"></script>'],
+    [
+      'a stylesheet declared with two rel tokens',
+      '<link rel="alternate stylesheet" href="https://evil.test/x.css" title="x">',
+    ],
+    [
+      'a script whose scheme hides behind a numeric reference',
+      '<script src="&#104ttps://evil.test/x.js"></script>',
+    ],
   ])('flags %s as cross-origin', (_label, html) => {
     expect(checkPageHygiene(html)).toHaveLength(1);
   });
