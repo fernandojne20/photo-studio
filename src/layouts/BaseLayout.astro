@@ -53,6 +53,13 @@ const { title, description = site.description, heroImage, forceNonIndexable } = 
       <slot />
     </main>
     <slot name="footer" />
+    <script>
+      // Analytics-ready dispatcher (PD-05): a same-origin module, loaded
+      // once per page so the `studio:analytics` listener is installed
+      // before any conversion link can be activated. See "Analytics hooks"
+      // in README.md; no vendor is installed and nothing subscribes today.
+      import '../scripts/analytics';
+    </script>
   </body>
 </html>
 

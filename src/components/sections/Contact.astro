@@ -35,12 +35,24 @@ const contactMessages = {
       <p class="contact__alt">
         {copy.contact.alternativeIntro}
         <br />
-        <a href={`mailto:${site.contact.email}`}>{site.contact.email}</a>
+        <a
+          href={`mailto:${site.contact.email}`}
+          data-analytics-event="email_click"
+          data-analytics-placement="contact"
+        >
+          {site.contact.email}
+        </a>
       </p>
       <p class="contact__alt">
         {copy.contact.alternativeCall}
         <br />
-        <a href={`tel:${site.contact.phoneE164}`}>{site.contact.phoneDisplay}</a>
+        <a
+          href={`tel:${site.contact.phoneE164}`}
+          data-analytics-event="phone_click"
+          data-analytics-placement="contact"
+        >
+          {site.contact.phoneDisplay}
+        </a>
       </p>
     </div>
 

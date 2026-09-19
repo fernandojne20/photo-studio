@@ -1,6 +1,7 @@
 import PhotoSwipeLightbox from 'photoswipe/lightbox';
 import { buildLightboxOptions } from '../lib/lightbox-options';
 import type { GalleryLabels } from '../lib/lightbox-options';
+import { trackAnalyticsEvent } from './analytics';
 
 /**
  * Initializes the PhotoSwipe lightbox for one gallery container. Loaded and
@@ -112,6 +113,16 @@ function lockBackgroundWhileOpen(lightbox: PhotoSwipeLightbox): void {
   });
 }
 
+/** Reports the opened item's 1-based position only, never a caption or URL. */
+function trackLightboxOpen(lightbox: PhotoSwipeLightbox): void {
+  lightbox.on('afterInit', () => {
+    const index = lightbox.pswp?.currIndex;
+    if (typeof index === 'number') {
+      trackAnalyticsEvent('lightbox_open', { position: index + 1 });
+    }
+  });
+}
+
 export function initLightbox(gallery: HTMLElement): PhotoSwipeLightbox {
   const prefersReducedMotion = window.matchMedia(REDUCED_MOTION_QUERY).matches;
   const options = buildLightboxOptions({ labels: readLabels(gallery), prefersReducedMotion });
@@ -129,6 +140,7 @@ export function initLightbox(gallery: HTMLElement): PhotoSwipeLightbox {
 
   registerCaption(lightbox);
   lockBackgroundWhileOpen(lightbox);
+  trackLightboxOpen(lightbox);
   lightbox.init();
 
   return lightbox;

@@ -13,6 +13,11 @@ import {
   type ContactFormMessages,
   type ContactResponseOutcome,
 } from '../lib/contact-form-state';
+import {
+  analyticsOutcomeForFormErrorCode,
+  analyticsOutcomeForResponse,
+} from '../lib/analytics-events';
+import { trackAnalyticsEvent } from './analytics';
 
 /**
  * Progressive enhancement for the contact form (`Contact.astro`): enables
@@ -512,6 +517,7 @@ function handleOutcome(
   outcome: ContactResponseOutcome,
   messages: ContactFormMessages,
 ): void {
+  trackAnalyticsEvent('contact_form_result', { outcome: analyticsOutcomeForResponse(outcome) });
   if (outcome.kind === 'success') {
     form.reset();
     clearFieldErrors(form);
@@ -543,6 +549,7 @@ async function submitContactForm(
     // Build produced no site key: Turnstile was never loaded, and the
     // server would answer `not_configured` anyway once delivery is not
     // set up either, so there is nothing to gain by calling it.
+    trackAnalyticsEvent('contact_form_result', { outcome: 'not_configured' });
     showFormError(form, messages.notConfigured);
     return;
   }
@@ -565,7 +572,11 @@ async function submitContactForm(
       );
       token = await requestCaptchaToken(state, container);
     } catch {
-      showFormError(form, mapFormErrorMessage(classifySubmitFailure('pre-fetch'), messages));
+      const code = classifySubmitFailure('pre-fetch');
+      trackAnalyticsEvent('contact_form_result', {
+        outcome: analyticsOutcomeForFormErrorCode(code),
+      });
+      showFormError(form, mapFormErrorMessage(code, messages));
       return;
     }
 
@@ -580,7 +591,11 @@ async function submitContactForm(
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
     } catch {
-      showFormError(form, mapFormErrorMessage(classifySubmitFailure('fetch'), messages));
+      const code = classifySubmitFailure('fetch');
+      trackAnalyticsEvent('contact_form_result', {
+        outcome: analyticsOutcomeForFormErrorCode(code),
+      });
+      showFormError(form, mapFormErrorMessage(code, messages));
       return;
     }
 
@@ -649,10 +664,14 @@ export function initContactForm(form: HTMLFormElement): void {
     clearStatusRegions(form);
 
     if (validation.kind === 'invalid') {
+      // A locally invalid form never reaches the server, so it gets no
+      // `contact_form_submit`/`contact_form_result`: those two describe a
+      // real attempt, not a keystroke away from one.
       applyFieldErrors(form, validation.errors, messages);
       return;
     }
 
+    trackAnalyticsEvent('contact_form_submit', {});
     void submitContactForm(
       form,
       submitButton,

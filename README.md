@@ -94,6 +94,28 @@ Directives, and the script/style resources, live as exported constants in `src/l
 
 To allow a new third-party origin (another API, a widget, a CDN), add it to the relevant constant in `src/lib/security-headers.mjs`, update its test, and re-verify in a real browser (`astro dev`/`preview` do not apply `_headers`, and `security.csp` is not evaluated in `astro dev` at all; use `pnpm build` + `wrangler dev --local` or `pnpm preview`).
 
+## Analytics hooks
+
+The site is analytics-READY, not analytics-equipped: no vendor is installed, nothing sets a cookie or touches `localStorage`/`sessionStorage`, and no personal data (a URL, a phone number, an e-mail address, a submitted field value, a field name, free text, a timestamp or any identifier) is ever part of an event. `src/lib/analytics-events.ts` is the closed, pure vocabulary — event names, placements and detail shapes, unit-tested against hostile input — and `src/scripts/analytics.ts` is the one dispatcher, loaded once from `BaseLayout.astro`. It delegates a single `click`/`auxclick` listener on `document`, validates the activated element's `data-analytics-event`/`data-analytics-placement` attributes through the vocabulary, and dispatches a `studio:analytics` `CustomEvent` on `document`; it never prevents or delays navigation, throws, logs, stores anything or makes a request. `src/lib/analytics-markup.test.ts` scans every conversion component's `.astro` source as text and fails if a `data-analytics-*` value drifts from the closed vocabulary or an expected attribute goes missing.
+
+Event vocabulary:
+
+- `whatsapp_click`, `instagram_click`, `email_click`, `phone_click` — `{ placement }`, one of `header`, `mobile_menu`, `hero`, `biography`, `contact`, `footer`, `instagram_section`.
+- `contact_form_submit` — `{}`, dispatched once a locally valid submission attempt begins (see `src/scripts/contact-form.ts`).
+- `contact_form_result` — `{ outcome }`, one of `success`, `field_errors`, `captcha_failed`, `not_configured`, `delivery_failed`, `network`; a rejected field never names which field.
+- `lightbox_open` — `{ position }`, the 1-based index of the opened photo (see `src/scripts/lightbox.ts`).
+
+A future vendor script would subscribe passively, never replacing the dispatcher:
+
+```js
+document.addEventListener('studio:analytics', (event) => {
+  const { name, detail } = event.detail;
+  // send `name`/`detail` to the vendor here
+});
+```
+
+Adding a vendor also means: extending `script-src` and `connect-src` in `src/lib/security-headers.mjs` (and `astro.config.mjs`'s `SCRIPT_RESOURCES`) for its script and reporting origins, and revisiting consent — none of that is done here. No personal data may ever be added to the vocabulary above, whatever the vendor asks for.
+
 ## Repository layout
 
 - `src/` — the Astro site: pages, layouts, components, content mapping, and the Sanity client

@@ -55,7 +55,14 @@ const mobileSrcSet = mobileImage
 
   <Monogram tone="light" class="hero__monogram" />
 
-  <a class="hero__cta" href={whatsAppUrl} target="_blank" rel="noopener">
+  <a
+    class="hero__cta"
+    href={whatsAppUrl}
+    target="_blank"
+    rel="noopener"
+    data-analytics-event="whatsapp_click"
+    data-analytics-placement="hero"
+  >
     <WhatsApp class="hero__cta-icon" />
     <span>{copy.heroCtaLabel}</span>
   </a>
