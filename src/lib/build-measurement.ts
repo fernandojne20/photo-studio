@@ -12,6 +12,11 @@ import { hasRelToken, readLiveElements } from './built-dom';
 import { isCrossOrigin } from './resource-url';
 import { isExecutableScriptType, scriptTypeString } from './script-type';
 
+/** The file a same-origin URL names: a cache-busting query or a fragment is not part of it. */
+function filePathOf(url: string): string {
+  return url.replace(/[?#].*$/, '');
+}
+
 export interface EagerScriptEntry {
   src: string;
   /** Only a module has static imports to follow. */
@@ -29,7 +34,7 @@ export function extractEagerScriptEntries(html: string): EagerScriptEntry[] {
     const { attrs } = element;
     if (attrs.src === undefined || isCrossOrigin(attrs.src)) continue;
     if (!isExecutableScriptType(attrs)) continue;
-    entries.push({ src: attrs.src, isModule: scriptTypeString(attrs) === 'module' });
+    entries.push({ src: filePathOf(attrs.src), isModule: scriptTypeString(attrs) === 'module' });
   }
   return entries;
 }
@@ -59,7 +64,8 @@ export function extractStylesheetHrefs(html: string): string[] {
     if (element.name !== 'link') continue;
     const { attrs } = element;
     // `rel` is a token list: `rel="preload stylesheet"` is a stylesheet too.
-    if (hasRelToken(attrs, 'stylesheet') && attrs.href !== undefined) hrefs.push(attrs.href);
+    if (hasRelToken(attrs, 'stylesheet') && attrs.href !== undefined)
+      hrefs.push(filePathOf(attrs.href));
   }
   return hrefs;
 }
@@ -75,7 +81,7 @@ export function extractPreloadedFontHrefs(html: string): string[] {
       attrs.as?.toLowerCase() === 'font' &&
       attrs.href !== undefined
     ) {
-      hrefs.push(attrs.href);
+      hrefs.push(filePathOf(attrs.href));
     }
   }
   return hrefs;
@@ -89,7 +95,7 @@ function extractFontFaceUrls(fontFaceBody: string): string[] {
   return [...fontFaceBody.matchAll(/url\(\s*["']?([^"')]+?)["']?\s*\)/gi)]
     .map((match) => match[1])
     .filter((url) => !isCrossOrigin(url))
-    .map((url) => url.replace(/[?#].*$/, ''));
+    .map(filePathOf);
 }
 
 const FONT_FACE_BLOCK = /@font-face\s*\{([^}]*)\}/gi;

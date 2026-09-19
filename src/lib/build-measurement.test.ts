@@ -223,6 +223,26 @@ describe('extractCssFontFaceUrls', () => {
   });
 });
 
+describe('a URL becomes a file name without its query or fragment', () => {
+  it('for classic and module scripts', () => {
+    const html =
+      '<script src="/vendor.js?v=1"></script><script type="module" src="/_astro/a.js#x"></script>';
+    expect(extractEagerScriptEntries(html)).toEqual([
+      { src: '/vendor.js', isModule: false },
+      { src: '/_astro/a.js', isModule: true },
+    ]);
+  });
+
+  it('for stylesheets and preloaded fonts', () => {
+    expect(extractStylesheetHrefs('<link rel="stylesheet" href="/css/site.css?v=2">')).toEqual([
+      '/css/site.css',
+    ]);
+    expect(
+      extractPreloadedFontHrefs('<link rel="preload" as="font" href="/fonts/a.woff2?v=3#x">'),
+    ).toEqual(['/fonts/a.woff2']);
+  });
+});
+
 describe('hasCssImport', () => {
   it('sees an @import in any case, and not one inside a comment', () => {
     expect(hasCssImport('@import url("fonts.css");body{margin:0}')).toBe(true);
