@@ -37,12 +37,17 @@ const { title, description = site.description, heroImage, forceNonIndexable } = 
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" />
-    {/* cssVariable values are the ones registered in astro.config.mjs (font families), not the role aliases from tokens.css. */}
+    {/* cssVariable values are the ones registered in astro.config.mjs, not the tokens.css role aliases.
+    Preloaded: Montserrat and Futura Light BT (header brand/nav, hero CTA — first viewport at 1366 and 393).
+    NOT preloaded: DM Sans, Minion, Adelia. DM Sans also paints the Welcome section's first line on mobile
+    (~725px at 393x800), but 239 kB at high priority would compete with the hero photo — the actual LCP —
+    for bandwidth; font-display: swap (Astro emits a metric-adjusted fallback for DM Sans, so no layout
+    shift) shows that line immediately instead. Revisit once DM Sans ships as WOFF2: it is open-licensed, unlike the three commercial fonts. */}
     <Font cssVariable="--font-montserrat" preload />
     <Font cssVariable="--font-futura-light" preload />
-    <Font cssVariable="--font-dm-sans" preload />
-    <Font cssVariable="--font-minion" preload />
-    <Font cssVariable="--font-adelia" preload />
+    <Font cssVariable="--font-dm-sans" />
+    <Font cssVariable="--font-minion" />
+    <Font cssVariable="--font-adelia" />
   </head>
   <body>
     <a class="skip-link" href="#main">
