@@ -39,7 +39,7 @@ Out of scope: any change to the site's markup or runtime code other than the sha
 
 ## Tasks
 
-- [ ] VH-01 `src/lib/built-dom.ts` with `readLiveElements` over `parse5`, its tests (every pinned behavior above, plus `--!>`, implicit body, CRLF input, foreign content such as an SVG `<title>`), and `parse5` declared in `devDependencies` with a minimal lockfile change.
+- [x] VH-01 `src/lib/built-dom.ts` with `readLiveElements` over `parse5`, its tests (every pinned behavior above, plus `--!>`, implicit body, CRLF input, foreign content such as an SVG `<title>`), and `parse5` declared in `devDependencies` with a minimal lockfile change.
 - [ ] VH-02 Migrate `build-verification-markup.ts`, `build-verification-policy.ts`, `build-verification-indexing.ts` and `build-measurement.ts` to `readLiveElements`; robots and policy metas count only when `inHead`; the analytics check uses the parser's tag name; delete the tokenizer half of `built-html.ts` and the tests that only pinned it. Both indexing modes verified on real builds; inline hashes verified against a real build.
 - [ ] VH-03 The verifier imports `analyticsEventForHref`; Instagram equivalents (`http:`, a default port, a tracking query or fragment, a trailing slash, host case) recognized by that one function; the agreement test; `/api/` closed in every robots group by the longest-match comparison `blocksHomepage` already has; XML comments ignored when counting sitemap `<loc>`; every executable external script in the eager JavaScript budget; font URLs from linked stylesheets in the total font budget.
 
@@ -54,6 +54,10 @@ Out of scope: any change to the site's markup or runtime code other than the sha
 
 - 2026-09-19 Opened. `parse5@8.0.1` confirmed installed through `jsdom` and `vitest` (`pnpm why parse5`); its `parse` takes `sourceCodeLocationInfo` and `scriptingEnabled` (default true), and implicitly created elements carry no source location. The user approved the devDependency.
 
+- 2026-09-19 Pull requests #24 to #27 and #29 merged; `main` at 02ad8cd verified identical to the reviewed branches, CI green including the new `verify` job.
+- 2026-09-19 VH-01 by a delegated writer. `src/lib/built-dom.ts` (123 lines) and 53 tests; `parse5` declared with a three-line lockfile change and no download. Writer's checks: `pnpm check` exit 0 with 27 files and 745 tests; six mutations, all caught, each confirmed applied. Parent readback and probes of its own choosing: every class the five bot rounds raised gets the right answer from the parser (the `--!>` comment ending, `<a@x>` and `<script@x>`, a body opened implicitly, a robots meta written in the body, raw-text elements, `&bsol;`, `&AMP;`, editor text posing as markup, `<noscript>` in head and in body). Native risk assessment `medium` (configuration change), so no separate verifier for this slice; the independent review covers it together with VH-02.
+- Worth knowing about parse5 8.0.1: HTML tag names arrive already lowercased, so the lowercase call only matters for foreign content such as `foreignObject`; void elements DO carry a `startTag` location, whatever the package's own doc comment says, and the skip of implicit elements relies on that; `&#0;` and out-of-range numeric references become U+FFFD as the standard says, where the old reader left them as written; a `<template>`'s children live only in `.content`, and the explicit skip stays as a guard.
+
 ## Next step
 
-VH-01 by a delegated writer on `feat/html-reader-parse5`.
+VH-02 by a delegated writer on `feat/verifier-on-parse5`, then one independent review of VH-01 and VH-02 together before either pull request opens.
