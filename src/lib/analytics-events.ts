@@ -87,6 +87,53 @@ export function isLinkActivation(type: string, button: number): boolean {
   return type === 'auxclick' && button === 1;
 }
 
+export type LinkAnalyticsEvent =
+  'whatsapp_click' | 'instagram_click' | 'email_click' | 'phone_click';
+
+/** `http:` counts too: the call to action schema accepts it and the link still reaches WhatsApp. */
+const WHATSAPP_HOSTS: ReadonlySet<string> = new Set(['wa.me', 'api.whatsapp.com']);
+
+/**
+ * By parsed host, as the browser resolves it: `https://wa.me?text=x` counts,
+ * `wa.me.evil.test` does not. The build verifier decides the same way, and the
+ * two must agree, because it rejects attributes on a link it does not recognize.
+ */
+function isWhatsAppUrl(href: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(href);
+    if (protocol === 'whatsapp:') return true;
+    return (protocol === 'https:' || protocol === 'http:') && WHATSAPP_HOSTS.has(hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** A URL as the browser resolves it: no tabs or line breaks, no leading spaces, `\` as `/`, lowercased. */
+function normalizeHref(href: string): string {
+  const compact = href.replace(/[\t\n\r]/g, '');
+  let start = 0;
+  while (start < compact.length && compact.charCodeAt(start) <= 0x20) start += 1;
+  return compact.slice(start).replace(/\\/g, '/').toLowerCase();
+}
+
+/**
+ * The event a link deserves by WHERE IT GOES, not by how it was configured.
+ * An editor can paste a WhatsApp or Instagram URL as a plain call to action,
+ * and that link is a conversion like any other.
+ */
+export function analyticsEventForHref(
+  href: string,
+  instagramUrl: string,
+): LinkAnalyticsEvent | undefined {
+  const url = normalizeHref(href);
+  if (isWhatsAppUrl(href)) return 'whatsapp_click';
+  if (url.startsWith('mailto:')) return 'email_click';
+  if (url.startsWith('tel:')) return 'phone_click';
+  const trim = (value: string) => value.replace(/\/$/, '');
+  if (trim(url) === trim(normalizeHref(instagramUrl))) return 'instagram_click';
+  return undefined;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }

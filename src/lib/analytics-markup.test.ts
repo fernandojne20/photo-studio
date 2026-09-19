@@ -41,10 +41,13 @@ const COMPONENTS: ExpectedComponent[] = [
     placements: ['hero'],
   },
   {
+    // Computed from where the link goes (`analyticsEventForHref`), because
+    // the editor chooses its destination: nothing literal to scan here. The
+    // classifier has its own tests and the built page is checked in CI.
     path: '../components/sections/Biography.astro',
-    attributeCount: 1,
-    events: ['whatsapp_click'],
-    placements: ['biography'],
+    attributeCount: 0,
+    events: [],
+    placements: [],
   },
   {
     path: '../components/sections/Contact.astro',
