@@ -65,7 +65,8 @@ function textOf(element: ElementNode): string {
  * In SVG it splits `xlink:href` into a prefix and a name: keep both, or it would pose as `href`.
  */
 function attrsOf(element: ElementNode): Record<string, string> {
-  const attrs: Record<string, string> = {};
+  // No prototype: an attribute named `__proto__` or `constructor` is just a name.
+  const attrs: Record<string, string> = Object.create(null);
   for (const attr of element.attrs) {
     const name = attr.prefix ? `${attr.prefix}:${attr.name}` : attr.name;
     attrs[name.toLowerCase()] = attr.value;
@@ -90,20 +91,28 @@ function buildElement(
   return Object.freeze(result);
 }
 
+/** Document order with an explicit stack: recursion would overflow on absurdly deep nesting. */
 function collect(
-  parent: ParentNode,
+  document: DefaultTreeAdapterTypes.Document,
   html: string,
   headElement: ElementNode | undefined,
-  inHead: boolean,
-  out: LiveElement[],
-): void {
-  for (const child of parent.childNodes) {
-    if (!isElement(child)) continue;
-    const startTag = child.sourceCodeLocation?.startTag;
-    if (startTag) out.push(buildElement(child, html, startTag, inHead));
+): LiveElement[] {
+  const out: LiveElement[] = [];
+  const pending: { node: ChildNode; inHead: boolean }[] = [];
+  const pushChildren = (parent: ParentNode, inHead: boolean) => {
+    for (let i = parent.childNodes.length - 1; i >= 0; i -= 1)
+      pending.push({ node: parent.childNodes[i], inHead });
+  };
+  pushChildren(document, false);
+  for (let item = pending.pop(); item; item = pending.pop()) {
+    const { node, inHead } = item;
+    if (!isElement(node)) continue;
+    const startTag = node.sourceCodeLocation?.startTag;
+    if (startTag) out.push(buildElement(node, html, startTag, inHead));
     // A <template>'s content lives in `.content`, which this walk never enters.
-    collect(child, html, headElement, inHead || child === headElement, out);
+    pushChildren(node, inHead || node === headElement);
   }
+  return out;
 }
 
 export function readLiveElements(html: string): LiveElement[] {
@@ -111,9 +120,7 @@ export function readLiveElements(html: string): LiveElement[] {
   if (cached) return cached;
 
   const document = parse(html, { sourceCodeLocationInfo: true });
-  const elements: LiveElement[] = [];
-  collect(document, html, findHead(document), false, elements);
-  Object.freeze(elements);
+  const elements = Object.freeze(collect(document, html, findHead(document))) as LiveElement[];
 
   cache.set(html, elements);
   if (cache.size > CACHE_LIMIT) {

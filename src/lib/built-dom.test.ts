@@ -361,6 +361,37 @@ describe('robustness', () => {
   });
 });
 
+describe('the reader keeps its promises on odd input', () => {
+  // 12,000 levels: beyond where recursion overflows here (about 10,000 frames), and the parser
+  // itself is quadratic in depth, so more would only make the test slow.
+  it('reads 12,000 nested elements in document order without overflowing the stack', () => {
+    const elements = readLiveElements(`${'<div>'.repeat(12_000)}<a href="#end">x</a>`);
+    expect(elements).toHaveLength(12_001);
+    expect(elements[0].name).toBe('div');
+    expect(elements[12_000].attrs.href).toBe('#end');
+  });
+
+  it('keeps siblings and their children in document order', () => {
+    const html = '<ul><li><a href="#1">1</a></li><li><a href="#2">2</a></li></ul><p><b>3</b></p>';
+    expect(readLiveElements(html).map((element) => element.name)).toEqual([
+      'ul',
+      'li',
+      'a',
+      'li',
+      'a',
+      'p',
+      'b',
+    ]);
+  });
+
+  it('treats __proto__ and constructor as ordinary attribute names', () => {
+    const [element] = readLiveElements('<a __proto__="x" constructor="y" href="#">x</a>');
+    expect(Object.keys(element.attrs).sort()).toEqual(['__proto__', 'constructor', 'href']);
+    expect(element.attrs['__proto__']).toBe('x');
+    expect(readLiveElements('<a href="#">x</a>')[0].attrs.constructor).toBeUndefined();
+  });
+});
+
 describe('memoization', () => {
   it('returns the same array instance for two calls with the same string', () => {
     const html = '<p>memo test unique marker A</p>';
