@@ -18,10 +18,24 @@ const { a11y } = site.copy;
     <div class="footer__mobile">
       <p class="footer__line">{site.contact.email}</p>
       <div class="footer__mobile-icons">
-        <a href={whatsAppUrl} target="_blank" rel="noopener" aria-label={a11y.whatsapp}>
+        <a
+          href={whatsAppUrl}
+          target="_blank"
+          rel="noopener"
+          aria-label={a11y.whatsapp}
+          data-analytics-event="whatsapp_click"
+          data-analytics-placement="footer"
+        >
           <WhatsApp class="footer__icon" />
         </a>
-        <a href={site.instagram.url} target="_blank" rel="noopener" aria-label={a11y.instagram}>
+        <a
+          href={site.instagram.url}
+          target="_blank"
+          rel="noopener"
+          aria-label={a11y.instagram}
+          data-analytics-event="instagram_click"
+          data-analytics-placement="footer"
+        >
           <Instagram class="footer__icon" />
         </a>
       </div>

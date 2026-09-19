@@ -41,6 +41,8 @@ const ctaIsExternal = cta ? cta.target === 'whatsapp' || cta.target === 'url' : 
         href={ctaHref}
         target={ctaIsExternal ? '_blank' : undefined}
         rel={ctaIsExternal ? 'noopener' : undefined}
+        data-analytics-event={cta.target === 'whatsapp' ? 'whatsapp_click' : undefined}
+        data-analytics-placement={cta.target === 'whatsapp' ? 'biography' : undefined}
       >
         {cta.label}
       </a>

@@ -31,6 +31,8 @@ const resolveHref = (href: string | undefined) =>
         target="_blank"
         rel="noopener"
         aria-label={a11y.whatsapp}
+        data-analytics-event="whatsapp_click"
+        data-analytics-placement="header"
       >
         <WhatsApp class="header__icon" />
       </a>
@@ -40,6 +42,8 @@ const resolveHref = (href: string | undefined) =>
         target="_blank"
         rel="noopener"
         aria-label={a11y.instagram}
+        data-analytics-event="instagram_click"
+        data-analytics-placement="header"
       >
         <Instagram class="header__icon" />
       </a>
@@ -63,6 +67,8 @@ const resolveHref = (href: string | undefined) =>
                 target={item.kind === 'whatsapp' ? '_blank' : undefined}
                 rel={item.kind === 'whatsapp' ? 'noopener' : undefined}
                 aria-current={isCurrent ? 'page' : undefined}
+                data-analytics-event={item.kind === 'whatsapp' ? 'whatsapp_click' : undefined}
+                data-analytics-placement={item.kind === 'whatsapp' ? 'header' : undefined}
               >
                 {item.label}
               </a>
@@ -102,6 +108,8 @@ const resolveHref = (href: string | undefined) =>
               href={href}
               target={item.kind === 'whatsapp' ? '_blank' : undefined}
               rel={item.kind === 'whatsapp' ? 'noopener' : undefined}
+              data-analytics-event={item.kind === 'whatsapp' ? 'whatsapp_click' : undefined}
+              data-analytics-placement={item.kind === 'whatsapp' ? 'mobile_menu' : undefined}
             >
               {item.label}
             </a>
