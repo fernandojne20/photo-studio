@@ -21,6 +21,7 @@
     "format:check": "prettier --check .",
     "typecheck": "astro check",
     "typegen:check": "pnpm typegen && git diff --exit-code -- src/sanity/sanity.types.ts",
+    "share-image:generate": "tsx scripts/generate-share-fallback.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm typegen:check && pnpm build && pnpm --filter studio lint && pnpm --filter studio format:check && pnpm --filter studio typecheck && pnpm --filter studio build"
@@ -50,6 +51,7 @@
     "globals": "^17.12.0",
     "prettier": "^3.9.8",
     "prettier-plugin-astro": "^1.0.1",
+    "sharp": "0.35.4",
     "tsx": "^4.19.2",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0",

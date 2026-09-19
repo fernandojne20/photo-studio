@@ -1,6 +1,6 @@
 ---
 import { PUBLIC_SITE_URL } from 'astro:env/client';
-import { site } from '../config/site';
+import { buildShareImageFallbackAlt, site } from '../config/site';
 import type { CmsImage } from '../content/types';
 import {
   buildJsonLd,
@@ -42,10 +42,11 @@ interface Props {
 
 const { title, description, heroImage } = Astro.props;
 
-const policy = resolveIndexingPolicy(resolveSiteUrl(PUBLIC_SITE_URL));
+const siteUrl = resolveSiteUrl(PUBLIC_SITE_URL);
+const policy = resolveIndexingPolicy(siteUrl);
 const robotsContent = buildRobotsMetaContent(policy.indexable);
 const ogLocale = buildOpenGraphLocale(site.locale);
-const shareImage = resolveShareImage(heroImage);
+const shareImage = resolveShareImage(heroImage, siteUrl, buildShareImageFallbackAlt(site.name));
 
 const jsonLd = buildJsonLd({
   name: site.name,
