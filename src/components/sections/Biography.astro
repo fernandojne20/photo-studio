@@ -4,6 +4,7 @@ import Monogram from '../Monogram.astro';
 import PortableTextBody from '../PortableTextBody.astro';
 import { site, buildWhatsAppUrl } from '../../config/site';
 import type { BiographyContent, BiographyCta } from '../../content/types';
+import { analyticsEventForHref } from '../../lib/analytics-events';
 
 interface Props {
   biography: BiographyContent;
@@ -25,6 +26,12 @@ function resolveCtaHref(cta: BiographyCta): string {
 const cta = biography.cta;
 const ctaHref = cta ? resolveCtaHref(cta) : undefined;
 const ctaIsExternal = cta ? cta.target === 'whatsapp' || cta.target === 'url' : false;
+// By destination, not by target: an editor can paste a WhatsApp or Instagram
+// URL as a plain `url` call to action, and that is a conversion too.
+const ctaEvent = ctaHref ? analyticsEventForHref(ctaHref, site.instagram.url) : undefined;
+const ctaAnalytics = ctaEvent
+  ? { 'data-analytics-event': ctaEvent, 'data-analytics-placement': 'biography' }
+  : {};
 ---
 
 <section id="biografia" class="biography">
@@ -41,8 +48,7 @@ const ctaIsExternal = cta ? cta.target === 'whatsapp' || cta.target === 'url' : 
         href={ctaHref}
         target={ctaIsExternal ? '_blank' : undefined}
         rel={ctaIsExternal ? 'noopener' : undefined}
-        data-analytics-event={cta.target === 'whatsapp' ? 'whatsapp_click' : undefined}
-        data-analytics-placement={cta.target === 'whatsapp' ? 'biography' : undefined}
+        {...ctaAnalytics}
       >
         {cta.label}
       </a>
