@@ -71,6 +71,15 @@ describe('extractStylesheetHrefs', () => {
     ]);
   });
 
+  it('reads rel as a token list, for stylesheets and for preloaded fonts', () => {
+    expect(extractStylesheetHrefs('<link rel="preload stylesheet" href="/_astro/b.css">')).toEqual([
+      '/_astro/b.css',
+    ]);
+    expect(
+      extractPreloadedFontHrefs('<link rel="PRELOAD prefetch" as="font" href="/_astro/f.woff2">'),
+    ).toEqual(['/_astro/f.woff2']);
+  });
+
   it('ignores a non-stylesheet link', () => {
     expect(extractStylesheetHrefs('<link rel="icon" href="/favicon.ico">')).toEqual([]);
   });

@@ -8,7 +8,13 @@
  */
 
 import { posix } from 'node:path';
-import { findElementContents, findTags, parseAttributes, stripInertMarkup } from './built-html';
+import {
+  findElementContents,
+  findTags,
+  hasRelToken,
+  parseAttributes,
+  stripInertMarkup,
+} from './built-html';
 
 /** `<script type="module" src="...">` entries: order-of-attributes-proof via `parseAttributes`. */
 export function extractModuleScriptEntries(html: string): string[] {
@@ -41,8 +47,8 @@ export function resolveSpecifier(importerAbsPath: string, spec: string): string 
 export function extractStylesheetHrefs(html: string): string[] {
   const hrefs: string[] = [];
   for (const attrs of findTags(stripInertMarkup(html), ['link']).map(parseAttributes)) {
-    if (attrs.rel?.toLowerCase() === 'stylesheet' && attrs.href !== undefined)
-      hrefs.push(attrs.href);
+    // `rel` is a token list: `rel="preload stylesheet"` is a stylesheet too.
+    if (hasRelToken(attrs, 'stylesheet') && attrs.href !== undefined) hrefs.push(attrs.href);
   }
   return hrefs;
 }
@@ -52,7 +58,7 @@ export function extractPreloadedFontHrefs(html: string): string[] {
   const hrefs: string[] = [];
   for (const attrs of findTags(stripInertMarkup(html), ['link']).map(parseAttributes)) {
     if (
-      attrs.rel?.toLowerCase() === 'preload' &&
+      hasRelToken(attrs, 'preload') &&
       attrs.as?.toLowerCase() === 'font' &&
       attrs.href !== undefined
     ) {
