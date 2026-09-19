@@ -32,8 +32,26 @@ function withoutTrailingSlash(url: string): string {
  * trailing slash normalized), never merely start with it — a profile link
  * to someone else's page under the same host would otherwise pass.
  */
-function classifyLinkKind(href: string, instagramUrl: string): LinkKind | undefined {
-  const lower = href.toLowerCase();
+/**
+ * A browser strips tabs and line breaks from a URL, trims leading control
+ * characters and spaces, and reads a backslash as a slash, all before it
+ * looks at the scheme. Classify what the browser will actually follow.
+ */
+function normalizeUrl(value: string): string {
+  const compact = value.replace(/[\t\n\r]/g, '');
+  let start = 0;
+  while (start < compact.length && compact.charCodeAt(start) <= 0x20) start += 1;
+  return compact.slice(start).replace(/\\/g, '/');
+}
+
+/** True for anything the browser would fetch from another origin, `//host/x` included. */
+function isCrossOrigin(url: string): boolean {
+  const normalized = normalizeUrl(url);
+  return normalized.startsWith('//') || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(normalized);
+}
+
+function classifyLinkKind(rawHref: string, instagramUrl: string): LinkKind | undefined {
+  const lower = normalizeUrl(rawHref).toLowerCase();
   if (WHATSAPP_PREFIXES.some((prefix) => lower.startsWith(prefix))) return 'whatsapp';
   if (lower.startsWith('mailto:')) return 'email';
   if (lower.startsWith('tel:')) return 'phone';
@@ -97,12 +115,12 @@ export function checkPageHygiene(html: string): string[] {
   const live = stripInertMarkup(html);
 
   for (const attrs of findTags(live, ['script']).map(parseAttributes)) {
-    if (attrs.src && /^https?:\/\//i.test(attrs.src))
+    if (attrs.src && isCrossOrigin(attrs.src))
       problems.push(`Script from another origin: ${attrs.src}`);
   }
   for (const attrs of findTags(live, ['link']).map(parseAttributes)) {
     if (attrs.rel?.toLowerCase() !== 'stylesheet') continue;
-    if (attrs.href && /^https?:\/\//i.test(attrs.href))
+    if (attrs.href && isCrossOrigin(attrs.href))
       problems.push(`Stylesheet from another origin: ${attrs.href}`);
   }
 
