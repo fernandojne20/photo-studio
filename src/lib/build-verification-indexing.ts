@@ -13,6 +13,7 @@ import {
   findElementContents,
   findTags,
   getHeader,
+  hasRelToken,
   parseAttributes,
   parseHeadersFile,
   stripInertMarkup,
@@ -32,7 +33,7 @@ function findRobotsMetaContents(liveHtml: string): string[] {
 function findCanonicalHrefs(liveHtml: string): string[] {
   return findTags(liveHtml, ['link'])
     .map(parseAttributes)
-    .filter((attrs) => attrs.rel?.toLowerCase() === 'canonical')
+    .filter((attrs) => hasRelToken(attrs, 'canonical'))
     .map((attrs) => attrs.href ?? '');
 }
 
@@ -99,12 +100,59 @@ interface RobotsGroup {
   rules: { directive: 'allow' | 'disallow'; path: string }[];
 }
 
+interface RobotsFile {
+  groups: RobotsGroup[];
+  /** Values of the live `Sitemap` lines; a commented one is not a directive. */
+  sitemaps: string[];
+}
+
+/** Directives of a robots meta: comma-separated, case-insensitive (`noindexing` is not `noindex`). */
+function robotsMetaTokens(content: string): Set<string> {
+  return new Set(
+    content
+      .toLowerCase()
+      .split(',')
+      .map((token) => token.trim())
+      .filter(Boolean),
+  );
+}
+
+function blocksIndexing(content: string): boolean {
+  const tokens = robotsMetaTokens(content);
+  return tokens.has('noindex') || tokens.has('none');
+}
+
+/** RFC 9309 path matching: a prefix match where `*` is any run and a final `$` anchors the end. */
+function robotsPatternMatches(pattern: string, path: string): boolean {
+  if (pattern === '') return false;
+  const anchored = pattern.endsWith('$');
+  const body = anchored ? pattern.slice(0, -1) : pattern;
+  const source = body
+    .split('*')
+    .map((part) => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))
+    .join('.*');
+  return new RegExp(`^${source}${anchored ? '$' : ''}`).test(path);
+}
+
+/** The homepage is shut out when a Disallow matches "/" and no Allow at least as specific does. */
+function blocksHomepage(group: RobotsGroup): boolean {
+  const longest = (directive: 'allow' | 'disallow') =>
+    Math.max(
+      -1,
+      ...group.rules
+        .filter((rule) => rule.directive === directive && robotsPatternMatches(rule.path, '/'))
+        .map((rule) => rule.path.length),
+    );
+  return longest('disallow') > longest('allow');
+}
+
 /**
  * Groups of a robots.txt (RFC 9309): one or more `User-agent` lines, then
  * the rules that apply to them. A rule outside any group applies to nobody.
  */
-function parseRobotsGroups(text: string): RobotsGroup[] {
+function parseRobotsFile(text: string): RobotsFile {
   const groups: RobotsGroup[] = [];
+  const sitemaps: string[] = [];
   let current: RobotsGroup | undefined;
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.replace(/#.*$/, '').trim();
@@ -120,15 +168,17 @@ function parseRobotsGroups(text: string): RobotsGroup[] {
       current.agents.push(value.toLowerCase());
     } else if ((key === 'allow' || key === 'disallow') && current) {
       current.rules.push({ directive: key, path: value });
+    } else if (key === 'sitemap') {
+      sitemaps.push(value);
     }
   }
-  return groups;
+  return { groups, sitemaps };
 }
 
 /** The rules must sit in the group every crawler reads, and no crawler may be shut out. */
 function checkRobotsRules(robotsTxt: string): string[] {
   const problems: string[] = [];
-  const groups = parseRobotsGroups(robotsTxt);
+  const { groups } = parseRobotsFile(robotsTxt);
   const everyone = groups.find((group) => group.agents.includes('*'));
   const has = (group: RobotsGroup, directive: 'allow' | 'disallow', path: string) =>
     group.rules.some((rule) => rule.directive === directive && rule.path === path);
@@ -141,7 +191,7 @@ function checkRobotsRules(robotsTxt: string): string[] {
       problems.push('robots.txt must disallow "/api/" for every crawler.');
   }
   for (const group of groups) {
-    if (has(group, 'disallow', '/'))
+    if (blocksHomepage(group))
       problems.push(
         `robots.txt must not disallow "/" in either mode, found it for ${group.agents.join(', ')}.`,
       );
@@ -159,7 +209,7 @@ export function checkIndexingPolicy(input: IndexingCheckInput): IndexingCheckRes
     if (robotsValues.length === 0) problems.push('Homepage has no live <meta name="robots"> tag.');
     return { problems, indexable: false };
   }
-  const indexable = !robotsContent.includes('noindex');
+  const indexable = !blocksIndexing(robotsContent);
   const canonical = resolveSingle(findCanonicalHrefs(liveHomepage), 'canonical', problems);
   const ogUrl = resolveSingle(findOgUrls(liveHomepage), 'og:url meta', problems);
 
@@ -176,7 +226,8 @@ export function checkIndexingPolicy(input: IndexingCheckInput): IndexingCheckRes
     if (canonical !== undefined)
       problems.push(`Homepage must have no canonical link, found "${canonical}".`);
     if (ogUrl !== undefined) problems.push(`Homepage must have no og:url, found "${ogUrl}".`);
-    if (/^Sitemap:/m.test(input.robotsTxt)) problems.push('robots.txt must have no Sitemap: line.');
+    if (parseRobotsFile(input.robotsTxt).sitemaps.length > 0)
+      problems.push('robots.txt must have no Sitemap: line.');
     if (input.sitemapXml !== undefined) problems.push('sitemap.xml must not exist.');
     if (robotsTagHeader !== 'noindex, nofollow')
       problems.push(
@@ -197,7 +248,8 @@ export function checkIndexingPolicy(input: IndexingCheckInput): IndexingCheckRes
     if (ogUrl !== expected)
       problems.push(`Homepage og:url must be "${expected}", found "${ogUrl ?? 'none'}".`);
     const sitemapUrl = new URL('/sitemap.xml', input.origin).toString();
-    if (!input.robotsTxt.includes(`Sitemap: ${sitemapUrl}`))
+    const sitemaps = parseRobotsFile(input.robotsTxt).sitemaps;
+    if (sitemaps.length !== 1 || sitemaps[0] !== sitemapUrl)
       problems.push(`robots.txt must have "Sitemap: ${sitemapUrl}".`);
     if (input.sitemapXml === undefined) {
       problems.push('sitemap.xml must exist.');
@@ -218,7 +270,7 @@ export function checkIndexingPolicy(input: IndexingCheckInput): IndexingCheckRes
     '404 robots meta',
     problems,
   );
-  if (!notFoundRobots?.includes('noindex'))
+  if (notFoundRobots === undefined || !blocksIndexing(notFoundRobots))
     problems.push(`404 page robots meta must be noindex, found "${notFoundRobots ?? 'none'}".`);
   const notFoundCanonicals = findCanonicalHrefs(liveNotFound);
   if (notFoundCanonicals.length > 0) problems.push('404 page must have no canonical link.');
