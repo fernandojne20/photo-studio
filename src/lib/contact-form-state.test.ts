@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { validateContactSubmission } from '../contact/validate';
 import {
   buildContactPayload,
   classifySubmitFailure,
+  fieldsForLocalValidation,
   firstInvalidField,
   interpretResponse,
   mapFormErrorMessage,
@@ -35,6 +37,52 @@ describe('buildContactPayload', () => {
 
   it('passes a filled honeypot through unchanged, since the server decides what it means', () => {
     const payload = buildContactPayload({ ...FIELDS, website: 'http://spam.example' }, 'token-abc');
+
+    expect(payload.website).toBe('http://spam.example');
+  });
+});
+
+describe('fieldsForLocalValidation', () => {
+  it('forces the honeypot to empty and leaves every other field unchanged', () => {
+    const values: ContactFormFieldValues = { ...FIELDS, website: 'http://spam.example' };
+
+    expect(fieldsForLocalValidation(values)).toEqual({ ...FIELDS, website: '' });
+  });
+
+  it('does not mutate the object it is given', () => {
+    const values: ContactFormFieldValues = { ...FIELDS, website: 'http://spam.example' };
+
+    fieldsForLocalValidation(values);
+
+    expect(values.website).toBe('http://spam.example');
+  });
+
+  it('(a) a filled bait plus an empty e-mail validates as invalid with email_required, never spam', () => {
+    const values: ContactFormFieldValues = { ...FIELDS, email: '', website: 'http://spam.example' };
+
+    const result = validateContactSubmission(fieldsForLocalValidation(values));
+
+    expect(result.kind).toBe('invalid');
+    if (result.kind === 'invalid') {
+      expect(result.errors.email).toBe('email_required');
+    }
+  });
+
+  it('a filled bait plus a valid form validates as valid, never spam', () => {
+    const values: ContactFormFieldValues = { ...FIELDS, website: 'http://spam.example' };
+
+    const result = validateContactSubmission(fieldsForLocalValidation(values));
+
+    expect(result.kind).toBe('valid');
+  });
+
+  it('(b) buildContactPayload still emits the raw bait after fieldsForLocalValidation ran on the same values', () => {
+    const values: ContactFormFieldValues = { ...FIELDS, website: 'http://spam.example' };
+
+    // Simulates the real submit-handler order: local validation runs first...
+    fieldsForLocalValidation(values);
+    // ...then the payload is built from the same, still-unmutated `values`.
+    const payload = buildContactPayload(values, 'token-abc');
 
     expect(payload.website).toBe('http://spam.example');
   });

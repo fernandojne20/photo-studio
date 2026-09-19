@@ -4,6 +4,7 @@ import {
   buildContactPayload,
   classifySubmitFailure,
   CONTACT_FIELD_ORDER,
+  fieldsForLocalValidation,
   firstInvalidField,
   interpretResponse,
   mapFormErrorMessage,
@@ -267,35 +268,72 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 let turnstileScriptPromise: Promise<TurnstileApi> | null = null;
 
+/**
+ * Loads the Turnstile script at most once, self-evicting if it stalls.
+ *
+ * Three races this guards against:
+ * - A request that never fires `load` nor `error` (blocked mid-flight,
+ *   a dropped connection, ...) would otherwise leave `turnstileScriptPromise`
+ *   pointing at a promise that never settles, wedging every later submit on
+ *   the same dead promise forever. The internal timer below evicts it
+ *   instead: clears the module-level cache and removes the stalled
+ *   `<script>` element, so the next call starts a genuinely fresh attempt.
+ * - A stalled request that eventually DOES finish loading (late, after
+ *   eviction) must not lead to a second `api.js`: `window.turnstile` is
+ *   checked first, before creating any element at all.
+ * - That same late `load`/`error` must not resolve/reject a promise nobody
+ *   is awaiting anymore, nor null out a cache slot a newer attempt already
+ *   owns. `settled` (this attempt is done, one way or another) and the
+ *   `turnstileScriptPromise === promise` check (this attempt is still the
+ *   current one) together make a late event on an evicted element a no-op.
+ */
 function loadTurnstileScript(): Promise<TurnstileApi> {
+  if (window.turnstile) return Promise.resolve(window.turnstile);
   if (turnstileScriptPromise) return turnstileScriptPromise;
 
-  turnstileScriptPromise = new Promise<TurnstileApi>((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = TURNSTILE_SCRIPT_SRC;
-    script.async = true;
+  const script = document.createElement('script');
+  script.src = TURNSTILE_SCRIPT_SRC;
+  script.async = true;
 
-    // On failure, clear the module-level cache AND remove the failed
-    // element: a rejected promise stays rejected forever, so leaving
-    // `turnstileScriptPromise` pointing at it would make every later
-    // submit fail immediately without ever trying the network again. The
-    // next call (another lazy-load trigger, or the submit itself) then
-    // creates a brand new `<script>` and genuinely retries.
-    const fail = (error: Error): void => {
-      turnstileScriptPromise = null;
+  const promise = new Promise<TurnstileApi>((resolve, reject) => {
+    let settled = false;
+
+    const evict = (): void => {
+      if (turnstileScriptPromise === promise) turnstileScriptPromise = null;
       script.remove();
-      reject(error);
     };
 
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      evict();
+      reject(new Error('turnstile_load_timeout'));
+    }, TURNSTILE_READY_TIMEOUT_MS);
+
     script.addEventListener('load', () => {
-      if (window.turnstile) resolve(window.turnstile);
-      else fail(new Error('turnstile_unavailable'));
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (window.turnstile) {
+        resolve(window.turnstile);
+      } else {
+        evict();
+        reject(new Error('turnstile_unavailable'));
+      }
     });
-    script.addEventListener('error', () => fail(new Error('turnstile_load_failed')));
+    script.addEventListener('error', () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      evict();
+      reject(new Error('turnstile_load_failed'));
+    });
+
     document.head.appendChild(script);
   });
 
-  return turnstileScriptPromise;
+  turnstileScriptPromise = promise;
+  return promise;
 }
 
 interface TurnstileState {
@@ -571,7 +609,22 @@ export function initContactForm(form: HTMLFormElement): void {
     if (form.dataset.busy === 'true') return;
 
     const values = readFieldValues(form);
-    const validation = validateContactSubmission(values);
+    // Local validation never sees the real bait value: `validateContactSubmission`
+    // checks the honeypot FIRST and would otherwise return `spam` before
+    // ever looking at the visible fields, which would make a baited
+    // submission skip local field errors that an identical clean form
+    // gets (and go straight to Turnstile/`fetch`) — an observable
+    // difference a bot inspecting the client could use to detect the
+    // honeypot. Passing `fieldsForLocalValidation(values)` (bait forced to
+    // `''`) instead means the local path is IDENTICAL with or without the
+    // bait, for both a valid and an invalid form: a filled bait plus an
+    // empty e-mail stops here with the same `email_required` field error
+    // a clean empty form gets. `values` itself is untouched, so the RAW
+    // bait still reaches `buildContactPayload` below; the server validates
+    // those raw values (bait included) and is what actually checks it, by
+    // design (see `src/contact/handle.ts`), silently answering the same
+    // `200 { ok: true }` as a real send either way.
+    const validation = validateContactSubmission(fieldsForLocalValidation(values));
 
     clearFieldErrors(form);
     clearStatusRegions(form);
@@ -581,17 +634,6 @@ export function initContactForm(form: HTMLFormElement): void {
       return;
     }
 
-    // `validation.kind` is `'valid'` or `'spam'` here. A filled honeypot
-    // (`'spam'`) is NOT short-circuited into a local fake success: the
-    // submission still goes through the exact same Turnstile + `fetch`
-    // path below, using the raw field values, and the server's own
-    // `validateContactSubmission` call (see `src/contact/handle.ts`) is
-    // what silently drops it, answering the same `200 { ok: true }` as a
-    // real send. From the client's own behavior — timing, requests,
-    // response, UI — a filled honeypot is indistinguishable from a real
-    // submission, so a bot inspecting network traffic learns nothing
-    // about the honeypot's existence; a bot that never fills the honeypot
-    // learns nothing either.
     void submitContactForm(
       form,
       submitButton,
