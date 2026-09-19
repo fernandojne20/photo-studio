@@ -60,13 +60,10 @@ function textOf(element: ElementNode): string {
   return text;
 }
 
-/** name="value" pairs as the parser decoded them; the first of a repeated name wins. */
+/** The parser has already decoded the values and dropped every repeat of a name but the first. */
 function attrsOf(element: ElementNode): Record<string, string> {
   const attrs: Record<string, string> = {};
-  for (const attr of element.attrs) {
-    const key = attr.name.toLowerCase();
-    if (!(key in attrs)) attrs[key] = attr.value;
-  }
+  for (const attr of element.attrs) attrs[attr.name.toLowerCase()] = attr.value;
   return attrs;
 }
 
@@ -98,10 +95,8 @@ function collect(
     if (!isElement(child)) continue;
     const startTag = child.sourceCodeLocation?.startTag;
     if (startTag) out.push(buildElement(child, html, startTag, inHead));
-    const childInHead = inHead || child === headElement;
-    // A <template>'s content lives in `.content`, never `.childNodes`: skip it.
-    if (child.tagName === 'template') continue;
-    collect(child, html, headElement, childInHead, out);
+    // A <template>'s content lives in `.content`, which this walk never enters.
+    collect(child, html, headElement, inHead || child === headElement, out);
   }
 }
 
