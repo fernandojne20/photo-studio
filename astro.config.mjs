@@ -13,7 +13,9 @@ import {
   assertNoForeignHeadersContent,
   buildContentSecurityPolicyHeader,
   buildHeadersFile,
+  extractCspMetaContent,
   extractRobotsMetaContent,
+  findBlockedImageOrigins,
 } from './src/lib/security-headers.mjs';
 
 /**
@@ -49,7 +51,7 @@ const removeEmptySitemap = {
 const injectSecurityHeaders = {
   name: 'inject-security-headers',
   hooks: {
-    'astro:build:done': ({ dir }) => {
+    'astro:build:done': ({ dir, logger }) => {
       const root = fileURLToPath(dir);
       const headersPath = join(root, '_headers');
       const indexPath = join(root, 'index.html');
@@ -80,6 +82,21 @@ const injectSecurityHeaders = {
         .filter((entry) => entry.endsWith('.html'))
         .map((entry) => readFileSync(join(root, entry), 'utf8'));
       const contentSecurityPolicy = buildContentSecurityPolicyHeader(htmlDocuments);
+
+      // Fallback content uses remote placeholder photos the policy blocks.
+      const blockedImageOrigins = [
+        ...new Set(
+          htmlDocuments.flatMap((html) =>
+            findBlockedImageOrigins(html, extractCspMetaContent(html)),
+          ),
+        ),
+      ];
+      if (blockedImageOrigins.length > 0) {
+        logger.warn(
+          `Images from ${blockedImageOrigins.join(', ')} are blocked by the Content Security Policy. ` +
+            'This looks like fallback content: the build is not deployable as is.',
+        );
+      }
 
       writeFileSync(
         headersPath,

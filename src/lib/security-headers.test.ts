@@ -11,6 +11,7 @@ import {
   buildContentSecurityPolicyHeader,
   buildHeadersFile,
   extractCspMetaContent,
+  findBlockedImageOrigins,
   extractRobotsMetaContent,
   mergeContentSecurityPolicies,
   parseCspDirectives,
@@ -155,6 +156,39 @@ describe('extractRobotsMetaContent', () => {
 
   it('throws when no robots meta tag exists', () => {
     expect(() => extractRobotsMetaContent('<head></head>')).toThrow(/No <meta name="robots">/);
+  });
+});
+
+describe('findBlockedImageOrigins', () => {
+  const policy = "default-src 'none'; img-src 'self' https://cdn.sanity.io data:; font-src 'self'";
+
+  it('is empty when every image comes from an allowed origin, a relative URL or a data URI', () => {
+    const html =
+      '<img src="https://cdn.sanity.io/images/a.jpg" srcset="https://cdn.sanity.io/images/a.jpg?w=640 640w, https://cdn.sanity.io/images/a.jpg?w=1280 1280w">' +
+      '<img src="/og-fallback.png"><img src="data:image/png;base64,AAAA">';
+    expect(findBlockedImageOrigins(html, policy)).toEqual([]);
+  });
+
+  it('lists each blocked origin once, sorted, from src and srcset of img and source', () => {
+    const html =
+      '<img src="https://picsum.photos/seed/a/800/600" srcset="https://picsum.photos/seed/a/400/300 400w">' +
+      '<picture><source srcset="https://example.com/b.avif"><img src="https://cdn.sanity.io/c.jpg"></picture>';
+    expect(findBlockedImageOrigins(html, policy)).toEqual([
+      'https://example.com',
+      'https://picsum.photos',
+    ]);
+  });
+
+  it('ignores links and scripts, which img-src does not govern', () => {
+    const html =
+      '<a href="https://wa.me/123">x</a><script src="https://challenges.cloudflare.com/t.js"></script>';
+    expect(findBlockedImageOrigins(html, policy)).toEqual([]);
+  });
+
+  it('treats every remote image as blocked when the policy has no img-src', () => {
+    expect(
+      findBlockedImageOrigins('<img src="https://cdn.sanity.io/a.jpg">', "default-src 'none'"),
+    ).toEqual(['https://cdn.sanity.io']);
   });
 });
 

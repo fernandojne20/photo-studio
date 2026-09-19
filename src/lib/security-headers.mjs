@@ -145,6 +145,25 @@ export function parseCspDirectives(content) {
 }
 
 /**
+ * Origins of `<img>` and `<source>` URLs in built HTML that the policy's
+ * `img-src` does not allow. Expected to be empty for a deployable build:
+ * the repository fallback content uses remote placeholder photos, which a
+ * strict production build never emits.
+ */
+export function findBlockedImageOrigins(html, policyContent) {
+  const imgSrc = parseCspDirectives(policyContent).find((d) => d.name === 'img-src');
+  const allowed = new Set(imgSrc ? imgSrc.tokens : []);
+  const blocked = new Set();
+  for (const tag of html.match(/<(?:img|source)\b[^>]*>/gi) ?? []) {
+    for (const url of tag.match(/https?:\/\/[^\s"',]+/g) ?? []) {
+      const origin = new URL(url).origin;
+      if (!allowed.has(origin)) blocked.add(origin);
+    }
+  }
+  return [...blocked].sort();
+}
+
+/**
  * Unions the hash sources of every directive across pages and requires
  * every other token, and the set of directive names itself, to match
  * exactly — so the one merged policy is valid for every page. Throws with
