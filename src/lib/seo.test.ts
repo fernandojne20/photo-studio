@@ -3,6 +3,7 @@ import {
   buildJsonLd,
   buildOpenGraphLocale,
   buildRobotsMetaContent,
+  buildTwitterCard,
   buildRobotsTxt,
   buildSitemapXml,
   hasRealInstagramHandle,
@@ -106,6 +107,16 @@ describe('buildRobotsMetaContent', () => {
 
   it('is "index, follow" when indexable', () => {
     expect(buildRobotsMetaContent(true)).toBe('index, follow');
+  });
+});
+
+describe('buildTwitterCard', () => {
+  it('is the large image card when a sharing image exists', () => {
+    expect(buildTwitterCard(true)).toBe('summary_large_image');
+  });
+
+  it('is the plain summary card when there is no sharing image', () => {
+    expect(buildTwitterCard(false)).toBe('summary');
   });
 });
 

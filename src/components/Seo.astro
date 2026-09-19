@@ -6,6 +6,7 @@ import {
   buildJsonLd,
   buildOpenGraphLocale,
   buildRobotsMetaContent,
+  buildTwitterCard,
   resolveIndexingPolicy,
   resolveSiteUrl,
   serializeJsonLd,
@@ -73,7 +74,7 @@ const jsonLdScript = serializeJsonLd(jsonLd);
 {shareImage && <meta property="og:image:height" content={String(shareImage.height)} />}
 {shareImage?.alt && <meta property="og:image:alt" content={shareImage.alt} />}
 
-<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:card" content={buildTwitterCard(shareImage !== undefined)} />
 <meta name="twitter:title" content={title} />
 <meta name="twitter:description" content={description} />
 {shareImage && <meta name="twitter:image" content={shareImage.url} />}

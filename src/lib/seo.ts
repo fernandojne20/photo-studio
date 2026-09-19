@@ -66,6 +66,14 @@ export function buildRobotsMetaContent(indexable: boolean): string {
 }
 
 /**
+ * `summary_large_image` promises a large image: without one the card must
+ * be the plain `summary`, or a preview declares an image it does not have.
+ */
+export function buildTwitterCard(hasImage: boolean): 'summary_large_image' | 'summary' {
+  return hasImage ? 'summary_large_image' : 'summary';
+}
+
+/**
  * Open Graph wants `og:locale` as `language_TERRITORY` (underscore), while
  * `site.locale` follows the BCP 47 `language-TERRITORY` (hyphen) form used
  * everywhere else (verified against https://ogp.me/, "og:locale ... format
