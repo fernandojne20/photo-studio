@@ -1,0 +1,81 @@
+---
+import { PUBLIC_SITE_URL } from 'astro:env/client';
+import { site } from '../config/site';
+import type { CmsImage } from '../content/types';
+import {
+  buildJsonLd,
+  buildOpenGraphLocale,
+  buildRobotsMetaContent,
+  resolveIndexingPolicy,
+  resolveSiteUrl,
+  serializeJsonLd,
+} from '../lib/seo';
+import { resolveShareImage } from '../lib/seo-image';
+
+/**
+ * All head SEO metadata in one place (see `odd/tasks/production-delivery.md`,
+ * PD-02): `<title>`, description, `robots`, canonical, Open Graph, Twitter
+ * Card and JSON-LD. `BaseLayout.astro` renders this once inside `<head>`;
+ * every decision (what counts as indexable, what the sharing image is, what
+ * JSON-LD facts are "known") is delegated to the pure functions in
+ * `src/lib/seo.ts` so it stays unit-testable.
+ *
+ * `og:url` is a required Open Graph property (https://ogp.me/: "The four
+ * required properties for every page are ... og:url") that cannot be
+ * produced without a known production origin, so it — and the canonical
+ * link, which is the same value — is the only part of this metadata gated
+ * on `PUBLIC_SITE_URL`. `og:title`/`og:description`/`og:image` and the
+ * Twitter Card tags are independent of it: the Sanity-hosted sharing image
+ * is already an absolute URL regardless of the site's own origin, so a
+ * preview build still shares correctly, it just cannot claim a canonical
+ * identity for itself (see also `resolveIndexingPolicy` in `src/lib/seo.ts`
+ * for why `robots`/canonical are gated the way they are).
+ */
+
+interface Props {
+  title: string;
+  description: string;
+  /** Homepage hero image, used to derive the 1200x630 sharing image. Omit on a page with no hero. */
+  heroImage?: CmsImage;
+}
+
+const { title, description, heroImage } = Astro.props;
+
+const policy = resolveIndexingPolicy(resolveSiteUrl(PUBLIC_SITE_URL));
+const robotsContent = buildRobotsMetaContent(policy.indexable);
+const ogLocale = buildOpenGraphLocale(site.locale);
+const shareImage = resolveShareImage(heroImage);
+
+const jsonLd = buildJsonLd({
+  name: site.name,
+  telephone: site.contact.phoneE164,
+  email: site.contact.email,
+  instagramUrl: site.instagram.url,
+  siteUrl: policy.canonical,
+  image: shareImage?.url,
+});
+const jsonLdScript = serializeJsonLd(jsonLd);
+---
+
+<title>{title}</title>
+<meta name="description" content={description} />
+<meta name="robots" content={robotsContent} />
+{policy.canonical && <link rel="canonical" href={policy.canonical} />}
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content={site.name} />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:locale" content={ogLocale} />
+{policy.canonical && <meta property="og:url" content={policy.canonical} />}
+{shareImage && <meta property="og:image" content={shareImage.url} />}
+{shareImage && <meta property="og:image:width" content={String(shareImage.width)} />}
+{shareImage && <meta property="og:image:height" content={String(shareImage.height)} />}
+{shareImage?.alt && <meta property="og:image:alt" content={shareImage.alt} />}
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+{shareImage && <meta name="twitter:image" content={shareImage.url} />}
+
+<script type="application/ld+json" set:html={jsonLdScript}></script>

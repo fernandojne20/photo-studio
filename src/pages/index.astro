@@ -15,7 +15,7 @@ import { getHomeContent } from '../content/home';
 const content = await getHomeContent();
 ---
 
-<BaseLayout title={`${site.name} — Fotografía`}>
+<BaseLayout title={`${site.name} — Fotografía`} heroImage={content.hero.image}>
   <Header slot="header" />
 
   <Hero hero={content.hero} />

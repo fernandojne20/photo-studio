@@ -3,13 +3,17 @@ import { Font } from 'astro:assets';
 import '../styles/tokens.css';
 import '../styles/global.css';
 import { site } from '../config/site';
+import Seo from '../components/Seo.astro';
+import type { CmsImage } from '../content/types';
 
 interface Props {
   title: string;
   description?: string;
+  /** Forwarded to `Seo.astro` to derive the Open Graph/Twitter sharing image. */
+  heroImage?: CmsImage;
 }
 
-const { title, description = site.description } = Astro.props;
+const { title, description = site.description, heroImage } = Astro.props;
 ---
 
 <html lang="es">
@@ -17,8 +21,13 @@ const { title, description = site.description } = Astro.props;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
-    <title>{title}</title>
-    <meta name="description" content={description} />
+    {/* Matches --color-bg in src/styles/tokens.css (#ffffff): duplicated
+    here because a meta tag's value must be a static string, not a CSS
+    custom property. This project has no separate brand/accent color token,
+    so the page's own background is the most honest choice for the browser
+    UI tint. */}
+    <meta name="theme-color" content="#ffffff" />
+    <Seo title={title} description={description} heroImage={heroImage} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" />
     {/* cssVariable values are the ones registered in astro.config.mjs (font families), not the role aliases from tokens.css. */}
