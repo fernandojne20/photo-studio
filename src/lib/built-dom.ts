@@ -22,7 +22,7 @@ export interface LiveElement {
   source: string;
   /** The tree builder placed the element inside the document's `<head>`. */
   inHead: boolean;
-  /** Text content of `script`, `style` and `title`; empty for every other element. */
+  /** Child text content (direct text nodes, what a browser runs and hashes) of `script`, `style` and `title`; empty otherwise. */
   text: string;
 }
 
@@ -60,10 +60,16 @@ function textOf(element: ElementNode): string {
   return text;
 }
 
-/** The parser has already decoded the values and dropped every repeat of a name but the first. */
+/**
+ * The parser has already decoded the values and dropped every repeat of a name but the first.
+ * In SVG it splits `xlink:href` into a prefix and a name: keep both, or it would pose as `href`.
+ */
 function attrsOf(element: ElementNode): Record<string, string> {
   const attrs: Record<string, string> = {};
-  for (const attr of element.attrs) attrs[attr.name.toLowerCase()] = attr.value;
+  for (const attr of element.attrs) {
+    const name = attr.prefix ? `${attr.prefix}:${attr.name}` : attr.name;
+    attrs[name.toLowerCase()] = attr.value;
+  }
   return attrs;
 }
 
