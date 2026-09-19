@@ -286,6 +286,8 @@ describe('analyticsEventForHref', () => {
   it.each([
     ['https://wa.me/5491126821220?text=Hola', 'whatsapp_click'],
     ['https://api.whatsapp.com/send?phone=5491126821220', 'whatsapp_click'],
+    ['http://wa.me/5491126821220', 'whatsapp_click'],
+    ['http://api.whatsapp.com/send?phone=5491126821220', 'whatsapp_click'],
     ['whatsapp://send?phone=1', 'whatsapp_click'],
     ['  HTTPS://WA.ME/1', 'whatsapp_click'],
     ['mailto:hola@example.com', 'email_click'],
@@ -301,6 +303,7 @@ describe('analyticsEventForHref', () => {
     ['https://example.com/galeria'],
     ['https://www.instagram.com/otra-cuenta/'],
     ['https://wa.me.evil.test/1'],
+    ['http://wa.me.evil.test/1'],
     [''],
   ])('gives no event to %s', (href) => {
     expect(analyticsEventForHref(href, instagram)).toBeUndefined();

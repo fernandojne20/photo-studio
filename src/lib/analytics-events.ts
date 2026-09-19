@@ -90,9 +90,15 @@ export function isLinkActivation(type: string, button: number): boolean {
 export type LinkAnalyticsEvent =
   'whatsapp_click' | 'instagram_click' | 'email_click' | 'phone_click';
 
+/**
+ * The call to action schema accepts `http:` too, and those links still reach
+ * WhatsApp. Keep this list equal to the one the build verifier uses.
+ */
 const WHATSAPP_PREFIXES: readonly string[] = [
   'https://wa.me/',
+  'http://wa.me/',
   'https://api.whatsapp.com/',
+  'http://api.whatsapp.com/',
   'whatsapp:',
 ];
 
