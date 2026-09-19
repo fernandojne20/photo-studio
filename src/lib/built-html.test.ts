@@ -285,3 +285,36 @@ describe('the scan is linear and follows the HTML tokenizer', () => {
     expect(findTags('a < b <3 </p> <!doctype html><p>')).toEqual(['<p>']);
   });
 });
+
+describe('details of the HTML tokenizer that checks rely on', () => {
+  it('does not end a script at a longer closing name such as </scripture>', () => {
+    const html = `<script>const s = "</scripture><a href='mailto:x'>";</script><p>`;
+    expect(findTags(html)).toEqual(['<script>', '<p>']);
+    expect(findElementContents(html, ['script'])).toEqual([
+      `const s = "</scripture><a href='mailto:x'>";`,
+    ]);
+  });
+
+  it('ends a script at </script followed by whitespace, a slash or >', () => {
+    expect(
+      findElementContents('<script>a</script ><script>b</script/><script>c</SCRIPT>', ['script']),
+    ).toEqual(['a', 'b', 'c']);
+  });
+
+  it('decodes decimal, hexadecimal and named character references in attribute values', () => {
+    expect(
+      parseAttributes(
+        '<a href="mail&#116;o&colon;x&#x40;example.com" title="a &amp; b &lt;c&gt;">',
+      ),
+    ).toEqual({
+      href: 'mailto:x@example.com',
+      title: 'a & b <c>',
+    });
+  });
+
+  it('leaves an unknown or invalid reference as written', () => {
+    expect(parseAttributes('<a title="&bogus; &#0; &#x110000;">').title).toBe(
+      '&bogus; &#0; &#x110000;',
+    );
+  });
+});

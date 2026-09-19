@@ -116,3 +116,32 @@ describe('checkPageHygiene', () => {
     ).toEqual([]);
   });
 });
+
+describe('links and resources as the browser resolves them', () => {
+  it.each([
+    ['a numeric character reference in the scheme', '<a href="mail&#116;o:x@example.com">x</a>'],
+    ['a tab inside the scheme', '<a href="mai\tlto:x@example.com">x</a>'],
+    ['leading spaces', '<a href="   mailto:x@example.com">x</a>'],
+    ['an uppercase scheme', '<a href="MAILTO:x@example.com">x</a>'],
+  ])('still sees an e-mail link written with %s', (_label, html) => {
+    expect(checkAnalyticsMarkup(html).some((problem) => problem.includes('email_click'))).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    ['a protocol-relative script', '<script type="module" src="//evil.test/x.js"></script>'],
+    ['a backslash protocol-relative script', '<script src="\\\\evil.test/x.js"></script>'],
+    ['a protocol-relative stylesheet', '<link rel="stylesheet" href="//evil.test/x.css">'],
+    ['a data: script', '<script src="data:text/javascript,alert(1)"></script>'],
+  ])('flags %s as cross-origin', (_label, html) => {
+    expect(checkPageHygiene(html)).toHaveLength(1);
+  });
+
+  it('accepts same-origin resources, absolute and relative', () => {
+    const html =
+      '<script type="module" src="/_astro/a.js"></script><script src="./b.js"></script>' +
+      '<link rel="stylesheet" href="/_astro/c.css"><link rel="stylesheet" href="d.css">';
+    expect(checkPageHygiene(html)).toEqual([]);
+  });
+});
