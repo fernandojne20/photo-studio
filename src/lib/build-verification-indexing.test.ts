@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { checkEnvironmentConsistency, checkIndexingPolicy } from './build-verification-indexing';
+import {
+  checkEnvironmentConsistency,
+  checkIndexingPolicy,
+  effectivePublicSiteUrl,
+} from './build-verification-indexing';
 
 const JSON_LD_NO_INSTAGRAM =
   '<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"x","telephone":"+1","email":"a@b.co"}</script>';
@@ -218,6 +222,65 @@ describe('checkIndexingPolicy — indexable', () => {
     expect(result.problems).toContain('robots.txt must disallow "/api/" for every crawler.');
   });
 
+  it.each([
+    ['/', 'a rule for the homepage alone'],
+    ['/*', 'a second /* rule'],
+  ])('flags an X-Robots-Tag set under %s (%s)', (path) => {
+    const result = checkIndexingPolicy({
+      mode: 'indexable',
+      origin: ORIGIN,
+      homepageHtml: indexableHomepage(),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: `${ROBOTS_TXT}Sitemap: ${ORIGIN}/sitemap.xml\n`,
+      sitemapXml: `<urlset><url><loc>${ORIGIN}/</loc></url></urlset>`,
+      headersText: `${HEADERS_INDEXABLE}\n${path}\n  x-robots-tag: noindex\n`,
+    });
+    expect(result.problems).toEqual([
+      `_headers' ${path} rule must not set X-Robots-Tag, found "noindex".`,
+    ]);
+  });
+
+  it.each(['googlebot', 'Googlebot-News', 'bingbot'])(
+    'flags a <meta name="%s"> that blocks indexing beside an indexable robots meta',
+    (name) => {
+      const result = checkIndexingPolicy({
+        mode: 'indexable',
+        origin: ORIGIN,
+        homepageHtml: homepage({
+          robots: `<meta name="robots" content="index, follow"><meta name="${name}" content="NOINDEX">`,
+          canonical: `<link rel="canonical" href="${ORIGIN}/">`,
+          ogUrl: `<meta property="og:url" content="${ORIGIN}/">`,
+        }),
+        notFoundHtml: NOT_FOUND_OK,
+        robotsTxt: `${ROBOTS_TXT}Sitemap: ${ORIGIN}/sitemap.xml\n`,
+        sitemapXml: `<urlset><url><loc>${ORIGIN}/</loc></url></urlset>`,
+        headersText: HEADERS_INDEXABLE,
+      });
+      expect(result.problems).toEqual([
+        `Homepage must not carry a <meta name="${name}"> that blocks indexing.`,
+      ]);
+    },
+  );
+
+  it('accepts a crawler meta that does not block, and editor text that merely says noindex', () => {
+    const result = checkIndexingPolicy({
+      mode: 'indexable',
+      origin: ORIGIN,
+      homepageHtml: homepage({
+        robots:
+          '<meta name="robots" content="index, follow"><meta name="googlebot" content="notranslate">' +
+          '<meta name="description" content="noindex">',
+        canonical: `<link rel="canonical" href="${ORIGIN}/">`,
+        ogUrl: `<meta property="og:url" content="${ORIGIN}/">`,
+      }),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: `${ROBOTS_TXT}Sitemap: ${ORIGIN}/sitemap.xml\n`,
+      sitemapXml: `<urlset><url><loc>${ORIGIN}/</loc></url></urlset>`,
+      headersText: HEADERS_INDEXABLE,
+    });
+    expect(result.problems).toEqual([]);
+  });
+
   it('flags a lingering X-Robots-Tag header', () => {
     const result = checkIndexingPolicy({
       mode: 'indexable',
@@ -331,6 +394,30 @@ describe('checkEnvironmentConsistency', () => {
         indexable: true,
       }),
     ).toEqual([]);
+  });
+});
+
+describe('effectivePublicSiteUrl', () => {
+  const dotenv = '# site\nPUBLIC_SITE_URL="https://from-env.test/blog"\nOTHER=1\n';
+
+  it('reads the value from a dotenv file when the shell has none', () => {
+    expect(effectivePublicSiteUrl(undefined, [dotenv])).toBe('https://from-env.test/blog');
+  });
+
+  it('lets the last dotenv file that sets it win, skipping files that do not', () => {
+    const local = 'PUBLIC_SITE_URL=https://local.test\n';
+    expect(effectivePublicSiteUrl(undefined, [dotenv, local, 'OTHER=2\n'])).toBe(
+      'https://local.test',
+    );
+  });
+
+  it('lets the shell win, even with an empty value', () => {
+    expect(effectivePublicSiteUrl('https://shell.test', [dotenv])).toBe('https://shell.test');
+    expect(effectivePublicSiteUrl('', [dotenv])).toBe('');
+  });
+
+  it('is undefined when nothing sets it', () => {
+    expect(effectivePublicSiteUrl(undefined, ['OTHER=1\n', ''])).toBeUndefined();
   });
 });
 
