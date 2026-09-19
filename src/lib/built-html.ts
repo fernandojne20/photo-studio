@@ -25,7 +25,8 @@ const RAW_TEXT_ELEMENTS: ReadonlySet<string> = new Set([
 /** Never painted or executed by default, so never evidence of anything. */
 const INERT_ELEMENTS: ReadonlySet<string> = new Set(['noscript', 'template']);
 
-const TAG_NAME = /^[a-zA-Z][a-zA-Z0-9_:.-]*/;
+/** A tag name runs to whitespace, `/` or `>`, as in the HTML tokenizer: `<script@x>` is not a script. */
+const TAG_NAME = /^[a-zA-Z][^\s/>]*/;
 
 interface Token {
   kind: 'comment' | 'element' | 'tag';
@@ -161,9 +162,13 @@ export function findTags(html: string, names?: readonly string[]): string[] {
 /** Named references an attribute value can plausibly use; numeric ones are decoded generally. */
 const NAMED_ENTITIES: Readonly<Record<string, string>> = {
   quot: '"',
+  QUOT: '"',
   amp: '&',
+  AMP: '&',
   lt: '<',
+  LT: '<',
   gt: '>',
+  GT: '>',
   apos: "'",
   colon: ':',
   sol: '/',
@@ -195,7 +200,7 @@ function decodeEntities(value: string): string {
 
 /** name="value" | name='value' | name=value | name (boolean), any order, name lowercased, value entity-decoded. The FIRST of two attributes with one name wins, as in the HTML parser. */
 export function parseAttributes(tag: string): Record<string, string> {
-  const body = tag.replace(/^<[a-zA-Z][a-zA-Z0-9-]*/, '').replace(/\/?>$/, '');
+  const body = tag.replace(/^<[a-zA-Z][^\s/>]*/, '').replace(/\/?>$/, '');
   const attrs: Record<string, string> = {};
   const pattern = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
   for (const match of body.matchAll(pattern)) {
