@@ -199,7 +199,9 @@ describe('checkIndexingPolicy — indexable', () => {
       sitemapXml: `<urlset><url><loc>${ORIGIN}/</loc></url></urlset>`,
       headersText: HEADERS_INDEXABLE,
     });
-    expect(result.problems).toContain('robots.txt must not disallow "/" in either mode.');
+    expect(result.problems).toContain(
+      'robots.txt must not disallow "/" in either mode, found it for *.',
+    );
   });
 
   it('requires Allow: / and Disallow: /api/ in indexable mode too', () => {
@@ -212,8 +214,8 @@ describe('checkIndexingPolicy — indexable', () => {
       sitemapXml: `<urlset><url><loc>${ORIGIN}/</loc></url></urlset>`,
       headersText: HEADERS_INDEXABLE,
     });
-    expect(result.problems).toContain('robots.txt must allow "/".');
-    expect(result.problems).toContain('robots.txt must disallow "/api/".');
+    expect(result.problems).toContain('robots.txt must allow "/" for every crawler.');
+    expect(result.problems).toContain('robots.txt must disallow "/api/" for every crawler.');
   });
 
   it('flags a lingering X-Robots-Tag header', () => {
@@ -329,5 +331,84 @@ describe('checkEnvironmentConsistency', () => {
         indexable: true,
       }),
     ).toEqual([]);
+  });
+});
+
+describe('robots.txt rules belong to the group every crawler reads', () => {
+  const robotsProblems = (robotsTxt: string) =>
+    checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml: homepage(),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt,
+      sitemapXml: undefined,
+      headersText: HEADERS_NON_INDEXABLE,
+    }).problems;
+
+  it('accepts the rules under User-agent: *, whatever the case, comments or line endings', () => {
+    expect(
+      robotsProblems('# crawlers\r\nuser-agent: *\r\nALLOW: /\r\nDisallow: /api/ # endpoint\r\n'),
+    ).toEqual([]);
+  });
+
+  it('rejects the rules when they only apply to one crawler', () => {
+    expect(robotsProblems('User-agent: Googlebot\nAllow: /\nDisallow: /api/\n')).toEqual([
+      'robots.txt must have a "User-agent: *" group.',
+    ]);
+  });
+
+  it('rejects rules that precede any User-agent line, which apply to nobody', () => {
+    expect(robotsProblems('Allow: /\nDisallow: /api/\nUser-agent: *\n')).toEqual([
+      'robots.txt must allow "/" for every crawler.',
+      'robots.txt must disallow "/api/" for every crawler.',
+    ]);
+  });
+
+  it('rejects a crawler that is shut out in its own group', () => {
+    expect(
+      robotsProblems(
+        'User-agent: *\nAllow: /\nDisallow: /api/\n\nUser-agent: Bingbot\nDisallow: /\n',
+      ),
+    ).toEqual(['robots.txt must not disallow "/" in either mode, found it for bingbot.']);
+  });
+
+  it('reads several User-agent lines as one group', () => {
+    expect(
+      robotsProblems('User-agent: Googlebot\nUser-agent: *\nAllow: /\nDisallow: /api/\n'),
+    ).toEqual([]);
+  });
+});
+
+describe('a forbidden tag is forbidden even when it is empty', () => {
+  const problemsFor = (
+    extra: { canonical?: string; ogUrl?: string },
+    notFoundHtml = NOT_FOUND_OK,
+  ) =>
+    checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml: homepage(extra),
+      notFoundHtml,
+      robotsTxt: ROBOTS_TXT,
+      sitemapXml: undefined,
+      headersText: HEADERS_NON_INDEXABLE,
+    }).problems;
+
+  it.each([
+    ['an empty href', '<link rel="canonical" href="">'],
+    ['no href at all', '<link rel="canonical">'],
+  ])('rejects a canonical link with %s on a non-indexable homepage', (_label, canonical) => {
+    expect(problemsFor({ canonical })).toEqual(['Homepage must have no canonical link, found "".']);
+  });
+
+  it('rejects an empty og:url on a non-indexable homepage', () => {
+    expect(problemsFor({ ogUrl: '<meta property="og:url" content="">' })).toEqual([
+      'Homepage must have no og:url, found "".',
+    ]);
+  });
+
+  it('rejects an empty canonical on the 404 page', () => {
+    const notFound = NOT_FOUND_OK.replace('</head>', '<link rel="canonical" href=""></head>');
+    expect(notFound).not.toBe(NOT_FOUND_OK);
+    expect(problemsFor({}, notFound)).toEqual(['404 page must have no canonical link.']);
   });
 });

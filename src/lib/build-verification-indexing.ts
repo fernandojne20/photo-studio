@@ -94,6 +94,61 @@ export interface IndexingCheckResult {
   indexable: boolean;
 }
 
+interface RobotsGroup {
+  agents: string[];
+  rules: { directive: 'allow' | 'disallow'; path: string }[];
+}
+
+/**
+ * Groups of a robots.txt (RFC 9309): one or more `User-agent` lines, then
+ * the rules that apply to them. A rule outside any group applies to nobody.
+ */
+function parseRobotsGroups(text: string): RobotsGroup[] {
+  const groups: RobotsGroup[] = [];
+  let current: RobotsGroup | undefined;
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.replace(/#.*$/, '').trim();
+    const colon = line.indexOf(':');
+    if (colon === -1) continue;
+    const key = line.slice(0, colon).trim().toLowerCase();
+    const value = line.slice(colon + 1).trim();
+    if (key === 'user-agent') {
+      if (!current || current.rules.length > 0) {
+        current = { agents: [], rules: [] };
+        groups.push(current);
+      }
+      current.agents.push(value.toLowerCase());
+    } else if ((key === 'allow' || key === 'disallow') && current) {
+      current.rules.push({ directive: key, path: value });
+    }
+  }
+  return groups;
+}
+
+/** The rules must sit in the group every crawler reads, and no crawler may be shut out. */
+function checkRobotsRules(robotsTxt: string): string[] {
+  const problems: string[] = [];
+  const groups = parseRobotsGroups(robotsTxt);
+  const everyone = groups.find((group) => group.agents.includes('*'));
+  const has = (group: RobotsGroup, directive: 'allow' | 'disallow', path: string) =>
+    group.rules.some((rule) => rule.directive === directive && rule.path === path);
+
+  if (!everyone) {
+    problems.push('robots.txt must have a "User-agent: *" group.');
+  } else {
+    if (!has(everyone, 'allow', '/')) problems.push('robots.txt must allow "/" for every crawler.');
+    if (!has(everyone, 'disallow', '/api/'))
+      problems.push('robots.txt must disallow "/api/" for every crawler.');
+  }
+  for (const group of groups) {
+    if (has(group, 'disallow', '/'))
+      problems.push(
+        `robots.txt must not disallow "/" in either mode, found it for ${group.agents.join(', ')}.`,
+      );
+  }
+  return problems;
+}
+
 /** Asserts the built output for the resolved indexing policy, in both modes. */
 export function checkIndexingPolicy(input: IndexingCheckInput): IndexingCheckResult {
   const problems: string[] = [];
@@ -113,17 +168,14 @@ export function checkIndexingPolicy(input: IndexingCheckInput): IndexingCheckRes
   const robotsTagHeader = staticRule ? getHeader(staticRule, 'X-Robots-Tag') : undefined;
 
   // Both modes: crawling is always allowed, and `/api/` is never crawled.
-  if (!/^Allow: \/$/m.test(input.robotsTxt)) problems.push('robots.txt must allow "/".');
-  if (!/^Disallow: \/api\/$/m.test(input.robotsTxt))
-    problems.push('robots.txt must disallow "/api/".');
-  if (/^Disallow: \/$/m.test(input.robotsTxt))
-    problems.push('robots.txt must not disallow "/" in either mode.');
+  problems.push(...checkRobotsRules(input.robotsTxt));
 
   if (input.mode === 'non-indexable') {
     if (robotsContent !== 'noindex, nofollow')
       problems.push(`Homepage robots meta must be "noindex, nofollow", found "${robotsContent}".`);
-    if (canonical) problems.push(`Homepage must have no canonical link, found "${canonical}".`);
-    if (ogUrl) problems.push(`Homepage must have no og:url, found "${ogUrl}".`);
+    if (canonical !== undefined)
+      problems.push(`Homepage must have no canonical link, found "${canonical}".`);
+    if (ogUrl !== undefined) problems.push(`Homepage must have no og:url, found "${ogUrl}".`);
     if (/^Sitemap:/m.test(input.robotsTxt)) problems.push('robots.txt must have no Sitemap: line.');
     if (input.sitemapXml !== undefined) problems.push('sitemap.xml must not exist.');
     if (robotsTagHeader !== 'noindex, nofollow')
@@ -168,8 +220,8 @@ export function checkIndexingPolicy(input: IndexingCheckInput): IndexingCheckRes
   );
   if (!notFoundRobots?.includes('noindex'))
     problems.push(`404 page robots meta must be noindex, found "${notFoundRobots ?? 'none'}".`);
-  if (resolveSingle(findCanonicalHrefs(liveNotFound), '404 canonical', problems))
-    problems.push('404 page must have no canonical link.');
+  const notFoundCanonicals = findCanonicalHrefs(liveNotFound);
+  if (notFoundCanonicals.length > 0) problems.push('404 page must have no canonical link.');
   if (input.sitemapXml !== undefined && extractSitemapLocs(input.sitemapXml).length !== 1)
     problems.push('sitemap.xml must list exactly one URL (the homepage), never the 404 page.');
 
