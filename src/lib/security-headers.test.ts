@@ -179,6 +179,29 @@ describe('findBlockedImageOrigins', () => {
     ]);
   });
 
+  it('ignores URL-like text in alt and other attributes, which is editor content', () => {
+    const html =
+      '<img src="https://cdn.sanity.io/a.jpg" alt="Foto tomada de https://example.com/galeria, 2024" title="https://evil.example">';
+    expect(findBlockedImageOrigins(html, policy)).toEqual([]);
+  });
+
+  it('never throws on an unparsable URL in src or srcset', () => {
+    const html =
+      '<img src="https://" srcset="https://[broken 640w, https://picsum.photos/a 1280w" alt="https://[also-broken">';
+    expect(findBlockedImageOrigins(html, policy)).toEqual(['https://picsum.photos']);
+  });
+
+  it('keeps commas inside a URL when splitting srcset candidates', () => {
+    const html =
+      '<img srcset="https://cdn.sanity.io/a.jpg?rect=0,80,1600,840&w=640 640w, https://picsum.photos/b?rect=1,2,3,4 1280w">';
+    expect(findBlockedImageOrigins(html, policy)).toEqual(['https://picsum.photos']);
+  });
+
+  it('does not read data-* attributes that merely end in src or srcset', () => {
+    const html = '<img src="/a.png" data-pswp-srcset="https://example.com/x.jpg 800w">';
+    expect(findBlockedImageOrigins(html, policy)).toEqual([]);
+  });
+
   it('ignores links and scripts, which img-src does not govern', () => {
     const html =
       '<a href="https://wa.me/123">x</a><script src="https://challenges.cloudflare.com/t.js"></script>';

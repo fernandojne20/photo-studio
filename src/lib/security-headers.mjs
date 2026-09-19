@@ -145,19 +145,32 @@ export function parseCspDirectives(content) {
 }
 
 /**
- * Origins of `<img>` and `<source>` URLs in built HTML that the policy's
- * `img-src` does not allow. Expected to be empty for a deployable build:
- * the repository fallback content uses remote placeholder photos, which a
- * strict production build never emits.
+ * Origins of the `src` and `srcset` URLs of `<img>` and `<source>` in built
+ * HTML that the policy's `img-src` does not allow. Expected to be empty for
+ * a deployable build: the repository fallback content uses remote
+ * placeholder photos, which a strict production build never emits. Only
+ * those two attributes are read (alt text is editor content and may contain
+ * anything), and an unparsable URL is skipped: this feeds a warning, so it
+ * must never throw.
  */
 export function findBlockedImageOrigins(html, policyContent) {
   const imgSrc = parseCspDirectives(policyContent).find((d) => d.name === 'img-src');
   const allowed = new Set(imgSrc ? imgSrc.tokens : []);
   const blocked = new Set();
   for (const tag of html.match(/<(?:img|source)\b[^>]*>/gi) ?? []) {
-    for (const url of tag.match(/https?:\/\/[^\s"',]+/g) ?? []) {
-      const origin = new URL(url).origin;
-      if (!allowed.has(origin)) blocked.add(origin);
+    for (const [, , value] of tag.matchAll(/\s(?:src|srcset)\s*=\s*(["'])(.*?)\1/gi)) {
+      // Candidates are separated by a comma plus whitespace; a bare comma
+      // can be part of a URL (Sanity's `rect=0,80,1600,840`).
+      for (const candidate of value.split(/,\s+/)) {
+        const url = candidate.trim().split(/\s+/)[0];
+        if (!/^https?:\/\//i.test(url)) continue;
+        try {
+          const { origin } = new URL(url);
+          if (!allowed.has(origin)) blocked.add(origin);
+        } catch {
+          // Not a URL after all: nothing to report.
+        }
+      }
     }
   }
   return [...blocked].sort();
