@@ -98,6 +98,21 @@ describe('resolveIndexingPolicy', () => {
       canonical: 'https://www.lauryherrera.example/',
     });
   });
+
+  it('forceNonIndexable overrides a valid site URL (e.g. the 404 page)', () => {
+    const siteUrl = new URL('https://www.lauryherrera.example/');
+    expect(resolveIndexingPolicy(siteUrl, { forceNonIndexable: true })).toEqual({
+      indexable: false,
+    });
+  });
+
+  it('forceNonIndexable: false behaves like the default', () => {
+    const siteUrl = new URL('https://www.lauryherrera.example/');
+    expect(resolveIndexingPolicy(siteUrl, { forceNonIndexable: false })).toEqual({
+      indexable: true,
+      canonical: 'https://www.lauryherrera.example/',
+    });
+  });
 });
 
 describe('buildRobotsMetaContent', () => {

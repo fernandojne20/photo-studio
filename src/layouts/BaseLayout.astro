@@ -11,9 +11,11 @@ interface Props {
   description?: string;
   /** Forwarded to `Seo.astro` to derive the Open Graph/Twitter sharing image. */
   heroImage?: CmsImage;
+  /** Forwarded to `Seo.astro` — forces `noindex, nofollow`, no canonical/`og:url`. */
+  forceNonIndexable?: boolean;
 }
 
-const { title, description = site.description, heroImage } = Astro.props;
+const { title, description = site.description, heroImage, forceNonIndexable } = Astro.props;
 ---
 
 <html lang="es">
@@ -27,7 +29,12 @@ const { title, description = site.description, heroImage } = Astro.props;
     so the page's own background is the most honest choice for the browser
     UI tint. */}
     <meta name="theme-color" content="#ffffff" />
-    <Seo title={title} description={description} heroImage={heroImage} />
+    <Seo
+      title={title}
+      description={description}
+      heroImage={heroImage}
+      forceNonIndexable={forceNonIndexable}
+    />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" />
     {/* cssVariable values are the ones registered in astro.config.mjs (font families), not the role aliases from tokens.css. */}

@@ -1,0 +1,54 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { site } from '../config/site';
+
+const { notFound } = site.copy;
+---
+
+<BaseLayout
+  title={`${notFound.heading} — ${site.name}`}
+  description={notFound.message}
+  forceNonIndexable
+>
+  <Header slot="header" />
+
+  <section class="not-found container">
+    <h1 class="not-found__heading">{notFound.heading}</h1>
+    <p class="not-found__message">{notFound.message}</p>
+    <a class="not-found__link" href="/">
+      {notFound.homeLinkLabel}
+    </a>
+  </section>
+
+  <Footer slot="footer" />
+</BaseLayout>
+
+<style>
+  .not-found {
+    padding-block: var(--space-3xl) var(--space-xl);
+    text-align: center;
+  }
+
+  .not-found__heading {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: var(--text-md);
+    letter-spacing: var(--tracking-heading);
+    text-transform: uppercase;
+    color: var(--color-text);
+    margin-bottom: var(--space-md);
+  }
+
+  .not-found__message {
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-lg);
+  }
+
+  .not-found__link {
+    color: var(--color-text);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+</style>
