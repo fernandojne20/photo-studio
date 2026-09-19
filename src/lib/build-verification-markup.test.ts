@@ -44,12 +44,20 @@ describe('checkAnalyticsMarkup', () => {
   });
 
   it('classifies the http: forms the call to action schema accepts as WhatsApp', () => {
-    for (const href of ['http://wa.me/1', 'http://api.whatsapp.com/send?phone=1']) {
+    for (const href of [
+      'http://wa.me/1',
+      'http://api.whatsapp.com/send?phone=1',
+      'https://wa.me?text=Hola',
+    ]) {
       const bare = checkAnalyticsMarkup(`<a href="${href}">wa</a>`);
       expect(bare.some((problem) => problem.includes('whatsapp_click'))).toBe(true);
       const tagged = `<a href="${href}" data-analytics-event="whatsapp_click" data-analytics-placement="biography">wa</a>`;
       expect(checkAnalyticsMarkup(tagged)).toEqual([]);
     }
+  });
+
+  it('does not take a host that merely starts with wa.me for WhatsApp', () => {
+    expect(checkAnalyticsMarkup('<a href="https://wa.me.evil.test/1">x</a>')).toEqual([]);
   });
 
   it('classifies a WhatsApp link case-insensitively', () => {
@@ -160,6 +168,10 @@ describe('links and resources as the browser resolves them', () => {
       '<script src="&nvsim;evil.test/x.js"></script>',
     ],
     [
+      'an external script after a tag whose name merely starts with script',
+      '<script@x><script src="https://evil.test/x.js"></script>',
+    ],
+    [
       'a relative script under a <base> that points elsewhere',
       '<base href="https://evil.test/"><script src="x.js"></script>',
     ],
@@ -169,7 +181,7 @@ describe('links and resources as the browser resolves them', () => {
 
   it('accepts same-origin resources, absolute and relative', () => {
     const html =
-      '<script type="module" src="/_astro/a.js"></script><script src="./b.js"></script>' +
+      '<script type="module" src="/_astro/a.js?a=1&AMP;b=2"></script><script src="./b.js"></script>' +
       '<link rel="stylesheet" href="/_astro/c.css"><link rel="stylesheet" href="d.css">';
     expect(checkPageHygiene(html)).toEqual([]);
   });
