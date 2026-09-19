@@ -243,12 +243,29 @@ describe('a URL becomes a file name without its query or fragment', () => {
   });
 });
 
+describe('fonts are counted once and only when a browser would load them', () => {
+  it('resolves an inline relative url against the homepage, the spelling a linked stylesheet yields', () => {
+    const inline = extractAllFontFaceUrls('<style>@font-face{src:url(fonts/a.woff2)}</style>');
+    const linked = extractCssFontFaceUrls('@font-face{src:url(a.woff2)}', '/fonts/site.css');
+    expect(inline).toEqual(['/fonts/a.woff2']);
+    expect(linked).toEqual(inline);
+  });
+
+  it('ignores a font-face block inside a comment, inline and linked', () => {
+    const css = '/* @font-face { src: url(old.woff2) } */@font-face{src:url(new.woff2)}';
+    expect(extractCssFontFaceUrls(css, '/css/site.css')).toEqual(['/css/new.woff2']);
+    expect(extractAllFontFaceUrls(`<style>${css}</style>`)).toEqual(['/new.woff2']);
+  });
+});
+
 describe('hasCssImport', () => {
   it('sees an @import in any case, and not one inside a comment', () => {
     expect(hasCssImport('@import url("fonts.css");body{margin:0}')).toBe(true);
     expect(hasCssImport('@IMPORT "fonts.css";')).toBe(true);
     expect(hasCssImport('/* @import "old.css"; */body{margin:0}')).toBe(false);
     expect(hasCssImport('.important{color:red}')).toBe(false);
+    expect(hasCssImport('.x::before{content:"@import \\"y\\""}')).toBe(false);
+    expect(hasCssImport(".x::before{content:'@import'}@import 'real.css';")).toBe(true);
   });
 });
 

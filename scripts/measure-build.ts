@@ -29,13 +29,15 @@ function buildEagerJsSet(
   entries: readonly EagerScriptEntry[],
 ): Map<string, Buffer> {
   const files = new Map<string, Buffer>();
+  // Tracked apart from `files`: a URL first met as a classic script may come back as a module.
+  const traversed = new Set<string>();
   const queue: EagerScriptEntry[] = [...entries];
   while (queue.length > 0) {
     const entry = queue.shift() as EagerScriptEntry;
-    if (files.has(entry.src)) continue;
-    const buffer = readFileSync(join(distClient, entry.src));
+    const buffer = files.get(entry.src) ?? readFileSync(join(distClient, entry.src));
     files.set(entry.src, buffer);
-    if (!entry.isModule) continue;
+    if (!entry.isModule || traversed.has(entry.src)) continue;
+    traversed.add(entry.src);
     for (const spec of extractStaticImportSpecifiers(buffer.toString('utf8'))) {
       queue.push({ src: resolveSpecifier(entry.src, spec), isModule: true });
     }

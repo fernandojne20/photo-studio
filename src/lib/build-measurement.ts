@@ -100,13 +100,20 @@ function extractFontFaceUrls(fontFaceBody: string): string[] {
 
 const FONT_FACE_BLOCK = /@font-face\s*\{([^}]*)\}/gi;
 
+/** A rule inside a comment loads nothing. */
+function withoutCssComments(cssText: string): string {
+  return cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
 /** Every font URL referenced by any `@font-face` rule in any inline `<style>` block of the page. */
 export function extractAllFontFaceUrls(html: string): string[] {
   const urls = new Set<string>();
   for (const element of readLiveElements(html)) {
     if (element.name !== 'style') continue;
-    for (const block of element.text.matchAll(FONT_FACE_BLOCK)) {
-      for (const url of extractFontFaceUrls(block[1])) urls.add(url);
+    for (const block of withoutCssComments(element.text).matchAll(FONT_FACE_BLOCK)) {
+      // Relative to the homepage, so the same file is never counted under two spellings.
+      for (const url of extractFontFaceUrls(block[1]))
+        urls.add(url.startsWith('/') ? url : resolveSpecifier('/index.html', url));
     }
   }
   return [...urls];
@@ -115,7 +122,7 @@ export function extractAllFontFaceUrls(html: string): string[] {
 /** Font files of a linked stylesheet. A relative `url(...)` in a CSS file is relative to THAT file, not to the page. */
 export function extractCssFontFaceUrls(cssText: string, cssFilePath: string): string[] {
   const urls = new Set<string>();
-  for (const block of cssText.matchAll(FONT_FACE_BLOCK)) {
+  for (const block of withoutCssComments(cssText).matchAll(FONT_FACE_BLOCK)) {
     for (const url of extractFontFaceUrls(block[1])) {
       urls.add(url.startsWith('/') ? url : resolveSpecifier(cssFilePath, url));
     }
@@ -125,7 +132,9 @@ export function extractCssFontFaceUrls(cssText: string, cssFilePath: string): st
 
 /** An `@import` would load a stylesheet that neither the CSS budget nor the font budget ever reads. */
 export function hasCssImport(cssText: string): boolean {
-  return /@import\b/i.test(cssText.replace(/\/\*[\s\S]*?\*\//g, ''));
+  // Strings are emptied too: `content: "@import"` imports nothing, `@import "x.css"` still does.
+  const bare = withoutCssComments(cssText).replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, '""');
+  return /@import\b/i.test(bare);
 }
 
 /** Number of live `<img>` tags: what the HTML budget scales with. */
