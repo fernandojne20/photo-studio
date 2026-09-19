@@ -15,6 +15,11 @@ const RAW_TEXT_ELEMENTS: ReadonlySet<string> = new Set([
   'template',
   'textarea',
   'title',
+  'iframe',
+  'noembed',
+  'noframes',
+  'xmp',
+  'plaintext',
 ]);
 
 /** Never painted or executed by default, so never evidence of anything. */
@@ -109,7 +114,8 @@ function tokenize(html: string): Token[] {
       cursor = tagEnd + 1;
       continue;
     }
-    const closeStart = findClosingTag(lower, name, tagEnd + 1);
+    // `<plaintext>` has no end: even `</plaintext>` is text to the HTML parser.
+    const closeStart = name === 'plaintext' ? -1 : findClosingTag(lower, name, tagEnd + 1);
     const closeEnd = closeStart === -1 ? -1 : html.indexOf('>', closeStart);
     const contentEnd = closeStart === -1 ? html.length : closeStart;
     const end = closeEnd === -1 ? html.length : closeEnd + 1;
@@ -161,6 +167,7 @@ const NAMED_ENTITIES: Readonly<Record<string, string>> = {
   apos: "'",
   colon: ':',
   sol: '/',
+  bsol: '\\',
   period: '.',
   commat: '@',
   num: '#',
