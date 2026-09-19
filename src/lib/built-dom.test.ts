@@ -97,6 +97,15 @@ describe('raw-text elements', () => {
     expect(find(html, 'script').map((element) => element.text)).toEqual(['a', 'b', 'c']);
   });
 
+  it("is not confused by a closing-tag lookalike inside its own opening tag's attribute", () => {
+    const html =
+      '<script type="application/ld+json" data-note="</script>">{"a":1}</script><p>after</p>';
+    const script = find(html, 'script')[0];
+    expect(script.attrs['data-note']).toBe('</script>');
+    expect(script.text).toBe('{"a":1}');
+    expect(find(html, 'p')).toHaveLength(1);
+  });
+
   it('never ends <plaintext>, so nothing after it is live', () => {
     const html = '<p>before</p><plaintext><a href="mailto:x@example.com">x</a></plaintext><img>';
     expect(names(html)).toEqual(['p', 'plaintext']);
@@ -111,8 +120,8 @@ describe('tag names', () => {
   });
 
   it('reads tag names with an underscore, a colon and a dot', () => {
-    const html = '<my_tag></my_tag><svg-rect></svg-rect><x.y></x.y>';
-    expect(names(html)).toEqual(['my_tag', 'svg-rect', 'x.y']);
+    const html = '<my_tag></my_tag><svg:rect></svg:rect><x.y></x.y>';
+    expect(names(html)).toEqual(['my_tag', 'svg:rect', 'x.y']);
   });
 
   it('lowercases an uppercase tag name', () => {
@@ -152,6 +161,12 @@ describe('attributes', () => {
   it('keeps the first of two attributes with the same name', () => {
     const html = '<meta content="first" CONTENT="second">';
     expect(find(html, 'meta')[0].attrs.content).toBe('first');
+  });
+
+  it('reads an unquoted value verbatim even when it contains a quote character', () => {
+    const html = `<a title=it's>x</a><p>after</p>`;
+    expect(find(html, 'a')[0].attrs.title).toBe("it's");
+    expect(find(html, 'p')).toHaveLength(1);
   });
 });
 
@@ -195,6 +210,28 @@ describe('character references in attribute values', () => {
     // with U+FFFD; it does not leave "&#0;" as written.
     const html = '<a title="&#0;">x</a>';
     expect(find(html, 'a')[0].attrs.title).toBe('�');
+  });
+
+  it('replaces an out-of-range numeric reference such as &#x110000; with U+FFFD too', () => {
+    const html = '<a title="&#x110000;">x</a>';
+    expect(find(html, 'a')[0].attrs.title).toBe('�');
+  });
+
+  it('decodes &lt;, &gt; and an accented letter such as &eacute;', () => {
+    const html = '<a href="&lt;script&gt;" title="caf&eacute;">x</a>';
+    const attrs = find(html, 'a')[0].attrs;
+    expect(attrs.href).toBe('<script>');
+    expect(attrs.title).toBe('café');
+  });
+
+  it('decodes a hex numeric reference without its trailing semicolon', () => {
+    const html = '<a href="mail&#x74o:x@example.com">x</a>';
+    expect(find(html, 'a')[0].attrs.href).toBe('mailto:x@example.com');
+  });
+
+  it("does not decode a named reference with no semicolon right before = or at the value's end", () => {
+    const html = '<a href="/x?a=1&amp=2&colon">x</a>';
+    expect(find(html, 'a')[0].attrs.href).toBe('/x?a=1&amp=2&colon');
   });
 });
 
@@ -298,6 +335,11 @@ describe('robustness', () => {
 
   it('never throws on a lone <', () => {
     expect(() => readLiveElements('<')).not.toThrow();
+  });
+
+  it('an unterminated attribute value at end of input swallows the rest, as a browser does', () => {
+    const html = '<p><a href="x><p><meta name=robots content=noindex>';
+    expect(names(html)).toEqual(['p']);
   });
 
   it('finishes well under 5 seconds on 300,000 unclosed quoted attribute values', () => {
