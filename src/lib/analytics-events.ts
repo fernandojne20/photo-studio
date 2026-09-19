@@ -90,24 +90,30 @@ export function isLinkActivation(type: string, button: number): boolean {
 export type LinkAnalyticsEvent =
   'whatsapp_click' | 'instagram_click' | 'email_click' | 'phone_click';
 
-/**
- * The call to action schema accepts `http:` too, and those links still reach
- * WhatsApp. Keep this list equal to the one the build verifier uses.
- */
-const WHATSAPP_PREFIXES: readonly string[] = [
-  'https://wa.me/',
-  'http://wa.me/',
-  'https://api.whatsapp.com/',
-  'http://api.whatsapp.com/',
-  'whatsapp:',
-];
+/** `http:` counts too: the call to action schema accepts it and the link still reaches WhatsApp. */
+const WHATSAPP_HOSTS: ReadonlySet<string> = new Set(['wa.me', 'api.whatsapp.com']);
 
-/** A URL as the browser resolves it: no tabs or line breaks, no leading spaces, lowercased. */
+/**
+ * By parsed host, as the browser resolves it: `https://wa.me?text=x` counts,
+ * `wa.me.evil.test` does not. The build verifier decides the same way, and the
+ * two must agree, because it rejects attributes on a link it does not recognize.
+ */
+function isWhatsAppUrl(href: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(href);
+    if (protocol === 'whatsapp:') return true;
+    return (protocol === 'https:' || protocol === 'http:') && WHATSAPP_HOSTS.has(hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** A URL as the browser resolves it: no tabs or line breaks, no leading spaces, `\` as `/`, lowercased. */
 function normalizeHref(href: string): string {
   const compact = href.replace(/[\t\n\r]/g, '');
   let start = 0;
   while (start < compact.length && compact.charCodeAt(start) <= 0x20) start += 1;
-  return compact.slice(start).toLowerCase();
+  return compact.slice(start).replace(/\\/g, '/').toLowerCase();
 }
 
 /**
@@ -120,7 +126,7 @@ export function analyticsEventForHref(
   instagramUrl: string,
 ): LinkAnalyticsEvent | undefined {
   const url = normalizeHref(href);
-  if (WHATSAPP_PREFIXES.some((prefix) => url.startsWith(prefix))) return 'whatsapp_click';
+  if (isWhatsAppUrl(href)) return 'whatsapp_click';
   if (url.startsWith('mailto:')) return 'email_click';
   if (url.startsWith('tel:')) return 'phone_click';
   const trim = (value: string) => value.replace(/\/$/, '');
