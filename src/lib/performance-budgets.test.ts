@@ -3,6 +3,7 @@ import {
   budgetProblems,
   evaluateBudgets,
   formatBudgetValue,
+  IMAGE_COUNT_KEY,
   PERFORMANCE_BUDGETS,
 } from './performance-budgets';
 
@@ -31,21 +32,27 @@ describe('PERFORMANCE_BUDGETS', () => {
 
 describe('evaluateBudgets', () => {
   it('is ok when every measurement is at or under its limit and at/above its minimum', () => {
-    const measurements = Object.fromEntries(PERFORMANCE_BUDGETS.map((b) => [b.name, b.limit]));
+    const measurements = {
+      ...Object.fromEntries(PERFORMANCE_BUDGETS.map((b) => [b.name, b.limit])),
+      [IMAGE_COUNT_KEY]: 0,
+    };
     const results = evaluateBudgets(measurements);
     expect(results.every((r) => r.ok)).toBe(true);
     expect(results.every((r) => r.problem === undefined)).toBe(true);
   });
 
   it('flags a measurement over its limit', () => {
-    const measurements = Object.fromEntries(PERFORMANCE_BUDGETS.map((b) => [b.name, b.limit + 1]));
+    const measurements = {
+      ...Object.fromEntries(PERFORMANCE_BUDGETS.map((b) => [b.name, b.limit + 1])),
+      [IMAGE_COUNT_KEY]: 0,
+    };
     const results = evaluateBudgets(measurements);
     expect(results.every((r) => !r.ok)).toBe(true);
     expect(results.every((r) => r.problem?.includes('exceeds the'))).toBe(true);
   });
 
   it('treats a missing measurement as its own distinct failure, not zero-passes', () => {
-    const [result] = evaluateBudgets({});
+    const [result] = evaluateBudgets({ [IMAGE_COUNT_KEY]: 0 });
     expect(result.ok).toBe(false);
     expect(result.measured).toBe(0);
     expect(result.problem).toContain('no measurement was reported');
@@ -91,7 +98,10 @@ describe('evaluateBudgets', () => {
 
 describe('budgetProblems', () => {
   it('is empty when nothing is over budget', () => {
-    const measurements = Object.fromEntries(PERFORMANCE_BUDGETS.map((b) => [b.name, b.limit]));
+    const measurements = {
+      ...Object.fromEntries(PERFORMANCE_BUDGETS.map((b) => [b.name, b.limit])),
+      [IMAGE_COUNT_KEY]: 0,
+    };
     expect(budgetProblems(evaluateBudgets(measurements))).toEqual([]);
   });
 
@@ -108,5 +118,42 @@ describe('formatBudgetValue', () => {
 
   it('renders a count as a bare integer', () => {
     expect(formatBudgetValue(4, 'count')).toBe('4');
+  });
+});
+
+describe('the HTML budget scales with the number of images', () => {
+  const others = Object.fromEntries(
+    PERFORMANCE_BUDGETS.filter((b) => b.name !== 'homepage-html-gzip').map((b) => [
+      b.name,
+      b.min ?? 0,
+    ]),
+  );
+  const html = (bytes: number, images: unknown) =>
+    evaluateBudgets({ ...others, 'homepage-html-gzip': bytes, [IMAGE_COUNT_KEY]: images }).find(
+      (r) => r.name === 'homepage-html-gzip',
+    );
+
+  it('allows 20 kB plus 1 kB per image', () => {
+    expect(html(20_000, 0)).toMatchObject({ ok: true, limit: 20_000 });
+    expect(html(35_000, 15)).toMatchObject({ ok: true, limit: 35_000 });
+    expect(html(35_001, 15)).toMatchObject({ ok: false, limit: 35_000 });
+  });
+
+  it('never fails a large portfolio at the measured cost per photo', () => {
+    // 10 kB of page plus 0.7 kB per photo, as measured on real content.
+    expect(html(10_000 + 700 * 400, 400)).toMatchObject({ ok: true });
+  });
+
+  it('still catches a blob that does not come with images', () => {
+    expect(html(10_000 + 700 * 15 + 30_000, 15)).toMatchObject({ ok: false });
+  });
+
+  it('fails as broken when the image count is missing or not a whole number', () => {
+    for (const images of [undefined, Number.NaN, -1, 1.5, '15']) {
+      expect(html(15_000, images)).toMatchObject({
+        ok: false,
+        problem: 'the image count it scales with was not reported (Homepage HTML, gzip).',
+      });
+    }
   });
 });

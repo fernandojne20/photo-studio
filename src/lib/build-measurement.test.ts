@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  countImages,
   extractAllFontFaceUrls,
   extractDynamicImportSpecifiers,
   extractModuleScriptEntries,
@@ -121,5 +122,14 @@ describe('extractAllFontFaceUrls', () => {
   it('never reads a @font-face block hidden inside a comment', () => {
     const html = '<!-- <style>@font-face{font-family:X;src:url("/a.woff2");}</style> -->';
     expect(extractAllFontFaceUrls(html)).toEqual([]);
+  });
+});
+
+describe('countImages', () => {
+  it('counts live images only, whatever their alt text says', () => {
+    const html =
+      '<img src="/a.jpg" alt="antes > <img src=x> despues"><img src="/b.jpg">' +
+      '<!-- <img src="/c.jpg"> --><noscript><img src="/d.jpg"></noscript>';
+    expect(countImages(html)).toBe(2);
   });
 });

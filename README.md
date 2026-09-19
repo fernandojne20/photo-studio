@@ -137,15 +137,15 @@ PUBLIC_SITE_URL=https://www.example.com pnpm build && \
 
 Budgets (`src/lib/performance-budgets.ts`), measured on real content 2026-09-19. Each byte/count budget a broken measurement could silently read as zero also has a `min` — a measurement below it, missing, non-finite or negative fails as "the measurement is probably broken", never as an empty pass:
 
-| Budget               | Measured | Limit    | Why                                                                                                                                                               |
-| -------------------- | -------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Homepage HTML, gzip  | 15.9 kB  | 40.0 kB  | Grows with the editor's content, which must never fail a build; only catches accidental inlining.                                                                 |
-| Eager JS, gzip       | 10.1 kB  | 24.0 kB  | `ServicesCarousel.astro` loads with a plain `<script>`, not `import()` — it is EAGER, and the editor's 5th service adds it (measured with the carousel: 17.8 kB). |
-| Lazy JS, gzip        | 16.9 kB  | 23.0 kB  | PhotoSwipe only: the carousel is eager, never lazy (see above). Headroom for a PhotoSwipe upgrade.                                                                |
-| Stylesheets, gzip    | 5.7 kB   | 7.5 kB   | One design system; a jump usually means an unscoped or duplicated rule.                                                                                           |
-| Eager script files   | 4        | 6        | Measured with a 5th placeholder service: 5 files (the carousel bundles Embla itself, no separate chunk). One spare.                                               |
-| Preloaded font bytes | 53.8 kB  | 70.0 kB  | Montserrat and Futura Light BT only (see "Font preloading").                                                                                                      |
-| Total font bytes     | 726.7 kB | 735.0 kB | Montserrat is fetched from Google at build time and can drift a little with no code change; the headroom is for that, not a new font.                             |
+| Budget               | Measured | Limit                  | Why                                                                                                                                                               |
+| -------------------- | -------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Homepage HTML, gzip  | 15.9 kB  | 20 kB + 1 kB per image | 10 kB without images and about 0.7 kB per photo, so a portfolio of any size never fails a build; catches accidental inlining.                                     |
+| Eager JS, gzip       | 10.1 kB  | 24.0 kB                | `ServicesCarousel.astro` loads with a plain `<script>`, not `import()` — it is EAGER, and the editor's 5th service adds it (measured with the carousel: 17.8 kB). |
+| Lazy JS, gzip        | 16.9 kB  | 23.0 kB                | PhotoSwipe only: the carousel is eager, never lazy (see above). Headroom for a PhotoSwipe upgrade.                                                                |
+| Stylesheets, gzip    | 5.7 kB   | 7.5 kB                 | One design system; a jump usually means an unscoped or duplicated rule.                                                                                           |
+| Eager script files   | 4        | 6                      | Measured with a 5th placeholder service: 5 files (the carousel bundles Embla itself, no separate chunk). One spare.                                               |
+| Preloaded font bytes | 53.8 kB  | 70.0 kB                | Montserrat and Futura Light BT only (see "Font preloading").                                                                                                      |
+| Total font bytes     | 726.7 kB | 735.0 kB               | Montserrat is fetched from Google at build time and can drift a little with no code change; the headroom is for that, not a new font.                             |
 
 Raising a budget needs a new `reason` in the table, not a bigger number with the same one.
 

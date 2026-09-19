@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import {
+  countImages,
   extractAllFontFaceUrls,
   extractDynamicImportSpecifiers,
   extractModuleScriptEntries,
@@ -17,6 +18,7 @@ import {
   extractStylesheetHrefs,
   resolveSpecifier,
 } from '../src/lib/build-measurement';
+import { IMAGE_COUNT_KEY } from '../src/lib/performance-budgets';
 
 /** Walks only static edges from the entry points: what the browser must fetch before the page is interactive. */
 function buildEagerJsSet(distClient: string, entries: string[]): Map<string, Buffer> {
@@ -88,6 +90,7 @@ export function measureBuild(distClient: string, homepageHtml: string): Record<s
 
   return {
     'homepage-html-gzip': gzipBytes(readFileSync(join(distClient, 'index.html'))),
+    [IMAGE_COUNT_KEY]: countImages(homepageHtml),
     'eager-js-gzip': sumGzip(eagerJs.values()),
     'lazy-js-gzip': sumGzip(lazyJs.values()),
     'stylesheets-gzip': sumGzip(cssFiles),

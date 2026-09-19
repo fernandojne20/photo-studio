@@ -19,6 +19,8 @@ export interface BudgetDefinition {
   limit: number;
   /** Sanity floor; omitted where zero is a legitimate value. */
   min?: number;
+  /** Added to `limit` once per `<img>` of the homepage, for rows that grow with the editor's content. */
+  limitPerImage?: number;
   unit: BudgetUnit;
   reason: string;
 }
@@ -27,11 +29,12 @@ export const PERFORMANCE_BUDGETS: readonly BudgetDefinition[] = [
   {
     name: 'homepage-html-gzip',
     description: 'Homepage HTML, gzip',
-    limit: 40_000,
+    limit: 20_000,
+    limitPerImage: 1_000,
     min: 1,
     unit: 'bytes',
     reason:
-      "Grows with the editor's portfolio and copy, and a content change must never fail a build: this only catches accidental inlining (a base64 image, a large script).",
+      '10 kB without any image, and about 0.7 kB per portfolio photo with its lightbox link. The allowance per image means a portfolio of any size can never fail a build; what this catches is accidental inlining (a base64 image, a large script).',
   },
   {
     name: 'eager-js-gzip',
@@ -88,6 +91,9 @@ export const PERFORMANCE_BUDGETS: readonly BudgetDefinition[] = [
   },
 ];
 
+/** Measurement key for the number of `<img>` tags, which scales the rows with `limitPerImage`. */
+export const IMAGE_COUNT_KEY = 'homepage-image-count';
+
 export interface BudgetCheckResult {
   name: string;
   description: string;
@@ -109,13 +115,29 @@ export interface BudgetCheckResult {
 export function evaluateBudgets(
   measurements: Readonly<Record<string, unknown>>,
 ): BudgetCheckResult[] {
+  const imageCount = measurements[IMAGE_COUNT_KEY];
+  const validImageCount =
+    typeof imageCount === 'number' && Number.isInteger(imageCount) && imageCount >= 0;
+
   return PERFORMANCE_BUDGETS.map((budget) => {
+    const limit =
+      budget.limitPerImage !== undefined && validImageCount
+        ? budget.limit + budget.limitPerImage * imageCount
+        : budget.limit;
     const base = {
       name: budget.name,
       description: budget.description,
-      limit: budget.limit,
+      limit,
       unit: budget.unit,
     };
+    if (budget.limitPerImage !== undefined && !validImageCount) {
+      return {
+        ...base,
+        measured: 0,
+        ok: false,
+        problem: `the image count it scales with was not reported (${budget.description}).`,
+      };
+    }
     if (!Object.hasOwn(measurements, budget.name)) {
       return {
         ...base,
@@ -151,13 +173,13 @@ export function evaluateBudgets(
           `minimum — the measurement is probably broken (${budget.description}).`,
       };
     }
-    if (value > budget.limit) {
+    if (value > limit) {
       return {
         ...base,
         measured: value,
         ok: false,
         problem:
-          `${formatBudgetValue(value, budget.unit)} exceeds the ${formatBudgetValue(budget.limit, budget.unit)} ` +
+          `${formatBudgetValue(value, budget.unit)} exceeds the ${formatBudgetValue(limit, budget.unit)} ` +
           `budget (${budget.description}).`,
       };
     }

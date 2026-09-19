@@ -77,3 +77,8 @@ export function extractAllFontFaceUrls(html: string): string[] {
   }
   return [...urls];
 }
+
+/** Number of live `<img>` tags: what the HTML budget scales with. */
+export function countImages(html: string): number {
+  return findTags(stripInertMarkup(html), ['img']).length;
+}
