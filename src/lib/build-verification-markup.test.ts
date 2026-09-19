@@ -43,6 +43,15 @@ describe('checkAnalyticsMarkup', () => {
     expect(checkAnalyticsMarkup(html)).toEqual([]);
   });
 
+  it('classifies the http: forms the call to action schema accepts as WhatsApp', () => {
+    for (const href of ['http://wa.me/1', 'http://api.whatsapp.com/send?phone=1']) {
+      const bare = checkAnalyticsMarkup(`<a href="${href}">wa</a>`);
+      expect(bare.some((problem) => problem.includes('whatsapp_click'))).toBe(true);
+      const tagged = `<a href="${href}" data-analytics-event="whatsapp_click" data-analytics-placement="biography">wa</a>`;
+      expect(checkAnalyticsMarkup(tagged)).toEqual([]);
+    }
+  });
+
   it('classifies a WhatsApp link case-insensitively', () => {
     const html =
       '<a HREF="HTTPS://WA.ME/1" data-analytics-event="whatsapp_click" data-analytics-placement="hero">a</a>';
@@ -141,6 +150,18 @@ describe('links and resources as the browser resolves them', () => {
     [
       'a script whose scheme hides behind a numeric reference',
       '<script src="&#104ttps://evil.test/x.js"></script>',
+    ],
+    [
+      'a protocol-relative script written with &bsol;',
+      '<script src="&bsol;&bsol;evil.test/x.js"></script>',
+    ],
+    [
+      'a script URL with a named reference this reader cannot decode',
+      '<script src="&nvsim;evil.test/x.js"></script>',
+    ],
+    [
+      'a relative script under a <base> that points elsewhere',
+      '<base href="https://evil.test/"><script src="x.js"></script>',
     ],
   ])('flags %s as cross-origin', (_label, html) => {
     expect(checkPageHygiene(html)).toHaveLength(1);
