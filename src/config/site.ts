@@ -1,3 +1,5 @@
+import type { ContactErrorCode } from '../contact/types';
+
 /**
  * Static, non-CMS site configuration: contact details, navigation, and
  * general copy that lives outside the biography (owned by `content-management`
@@ -52,6 +54,15 @@ export interface ContactCopy {
   alternativeCall: string;
 }
 
+/** One Spanish message per domain error code from `src/contact/types.ts`. */
+export type ContactFormErrorMessages = Record<ContactErrorCode, string>;
+
+export interface ContactFormNoscriptCopy {
+  message: string;
+  whatsappCta: string;
+  emailCta: string;
+}
+
 export interface ContactFormLabels {
   firstName: string;
   lastName: string;
@@ -59,6 +70,26 @@ export interface ContactFormLabels {
   phone: string;
   message: string;
   submit: string;
+  /** Button label and status text while the request is in flight. */
+  sending: string;
+  /** Status text once the server confirms the message was sent. */
+  success: string;
+  /** Explains the `*` marker next to the required field. */
+  requiredNote: string;
+  /** Hidden label for the honeypot input (see `Contact.astro`); never seen or announced. */
+  honeypotLabel: string;
+  errors: ContactFormErrorMessages;
+  /** Form-level error: a captcha failure before the request ever reached the server (script load, render, or verification failure). Never suggests refreshing: that would discard what the visitor typed, and a blocked script would not be fixed by a reload anyway. */
+  captchaFailed: string;
+  /** Form-level error: delivery is not configured yet (tells the visitor to use WhatsApp or e-mail). */
+  notConfigured: string;
+  /** Form-level error: Resend rejected or failed to deliver the message. */
+  deliveryFailed: string;
+  /** Form-level error: anything else (network failure, timeout, unreadable response). */
+  network: string;
+  /** Polite instruction shown while an interactive Turnstile challenge is visible. */
+  interactiveChallenge: string;
+  noscript: ContactFormNoscriptCopy;
 }
 
 export interface BiographyFallbackCopy {
@@ -174,6 +205,38 @@ export const site: SiteConfig = {
       phone: 'Teléfono',
       message: 'Mensaje',
       submit: 'Enviar',
+      sending: 'Enviando…',
+      success: 'Tu mensaje fue enviado; te responderemos pronto.',
+      requiredNote: '* Campo obligatorio',
+      // Aria-hidden wrapper (see `Contact.astro`): never seen or announced.
+      // A name unrelated to "website"/"referencia" keeps it from reading as
+      // a normal label to a human skimming the source.
+      honeypotLabel: 'Referencia interna',
+      errors: {
+        email_required: 'Falta tu e-mail; escríbelo para que podamos responderte.',
+        email_invalid:
+          'Ese e-mail no parece válido; revisa el formato, por ejemplo nombre@correo.com.',
+        too_long: 'Este texto supera el límite permitido; redúcelo un poco.',
+        // Matches the real rule in `src/contact/validate.ts`: digits,
+        // spaces, and `+ - ( ) .`, with at least 6 digits.
+        phone_invalid:
+          'Ese teléfono no es válido: usa solo números, espacios y + - ( ) ., con un mínimo de 6 dígitos.',
+      },
+      // Never suggests refreshing the page: that would discard what the
+      // visitor already typed, and a captcha failure caused by a blocked
+      // or failed script is not fixed by a reload. Offers WhatsApp instead.
+      captchaFailed:
+        'No pudimos completar la verificación; inténtalo de nuevo o escríbenos por WhatsApp.',
+      notConfigured:
+        'El envío por formulario no está disponible todavía; escríbenos por WhatsApp o por correo.',
+      deliveryFailed: 'No pudimos enviar tu mensaje; inténtalo de nuevo o escríbenos por WhatsApp.',
+      network: 'No pudimos conectar con el servidor; revisa tu conexión e inténtalo de nuevo.',
+      interactiveChallenge: 'Completa la verificación para enviar tu mensaje.',
+      noscript: {
+        message: 'Este formulario necesita JavaScript para enviarse.',
+        whatsappCta: 'Escríbenos por WhatsApp',
+        emailCta: 'o envíanos un correo a',
+      },
     },
     instagramHeading: 'Instagram',
     biographyFallback: {

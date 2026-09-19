@@ -22,7 +22,9 @@
   /* Color: light sections */
   --color-bg: #ffffff;
   --color-text: #4a4a4a;
-  --color-text-muted: #7a7a7a;
+  /* 4.54:1 on `--color-bg` (#fff): AA for the small text that uses this
+     token (`.contact__required-note`, `.contact__noscript`, `Welcome.astro`). */
+  --color-text-muted: #767676;
   --color-hairline: #3a3a3a;
 
   /* Color: dark biography section */
@@ -38,6 +40,9 @@
   --color-surface: #ffffff;
   --color-overlay-dark: rgb(10 10 10 / 45%);
   --color-focus-ring: #4a4a4a;
+  /* Contact form errors and status only. #b3261e on `--color-bg` (#fff) is
+     ~6.5:1, comfortably above the 4.5:1 minimum. */
+  --color-error: #b3261e;
 
   /* Font roles (families configured through the Astro fonts API, see astro.config.mjs) */
   --font-display: var(--font-montserrat), sans-serif;

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { buildWhatsAppUrl, site } from './site';
+import type { ContactErrorCode } from '../contact/types';
+
+const CONTACT_ERROR_CODES: ContactErrorCode[] = [
+  'email_required',
+  'email_invalid',
+  'too_long',
+  'phone_invalid',
+];
 
 describe('buildWhatsAppUrl', () => {
   it('strips non-digit characters from the E.164 phone number', () => {
@@ -50,5 +58,51 @@ describe('site navigation', () => {
 
     expect(whatsappItem).toBeDefined();
     expect(whatsappItem?.href).toBeUndefined();
+  });
+});
+
+describe('contact form copy', () => {
+  it('has a non-empty Spanish message for every domain error code, so a new code cannot ship without copy', () => {
+    CONTACT_ERROR_CODES.forEach((code) => {
+      const message = site.copy.contactForm.errors[code];
+      expect(typeof message).toBe('string');
+      expect(message.trim().length).toBeGreaterThan(0);
+    });
+  });
+
+  it('has a non-empty Spanish message for every form-level state (busy, success, form-level errors, required note, interactive challenge, honeypot label, noscript)', () => {
+    const messages = [
+      site.copy.contactForm.sending,
+      site.copy.contactForm.success,
+      site.copy.contactForm.requiredNote,
+      site.copy.contactForm.honeypotLabel,
+      site.copy.contactForm.captchaFailed,
+      site.copy.contactForm.notConfigured,
+      site.copy.contactForm.deliveryFailed,
+      site.copy.contactForm.network,
+      site.copy.contactForm.interactiveChallenge,
+      site.copy.contactForm.noscript.message,
+      site.copy.contactForm.noscript.whatsappCta,
+      site.copy.contactForm.noscript.emailCta,
+    ];
+
+    messages.forEach((message) => {
+      expect(typeof message).toBe('string');
+      expect(message.trim().length).toBeGreaterThan(0);
+    });
+  });
+
+  it('never tells the visitor to refresh/reload the page on a captcha failure (would discard what they typed)', () => {
+    const message = site.copy.contactForm.captchaFailed.toLowerCase();
+    expect(message).not.toMatch(/actualiza|recarga|refresca/);
+  });
+
+  it('states the real phone rule (digits, spaces, + - ( ) ., at least 6 digits)', () => {
+    const message = site.copy.contactForm.errors.phone_invalid;
+    expect(message).toContain('6');
+    expect(message).toMatch(/\+/);
+    expect(message).toMatch(/-/);
+    expect(message).toMatch(/\(/);
+    expect(message).toMatch(/\)/);
   });
 });
