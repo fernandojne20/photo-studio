@@ -11,7 +11,7 @@
 import { parseEnv } from 'node:util';
 import { hasRelToken, readLiveElements } from './built-dom';
 import type { LiveElement } from './built-dom';
-import { getHeader, parseHeadersFile } from './built-html';
+import { getHeader, parseHeadersFile } from './headers-file';
 import { hasRealInstagramHandle } from './seo';
 import { site } from '../config/site';
 
