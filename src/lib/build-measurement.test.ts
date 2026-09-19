@@ -233,6 +233,12 @@ describe('a URL becomes a file name without its query or fragment', () => {
     ]);
   });
 
+  it('after reading the URL as the browser does: leading spaces, a tab, a backslash', () => {
+    expect(extractEagerScriptEntries('<script src="  \\vendor\tfile.js?v=1"></script>')).toEqual([
+      { src: '/vendorfile.js', isModule: false },
+    ]);
+  });
+
   it('for stylesheets and preloaded fonts', () => {
     expect(extractStylesheetHrefs('<link rel="stylesheet" href="/css/site.css?v=2">')).toEqual([
       '/css/site.css',

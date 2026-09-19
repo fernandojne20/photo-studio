@@ -9,12 +9,12 @@
 
 import { posix } from 'node:path';
 import { hasRelToken, readLiveElements } from './built-dom';
-import { isCrossOrigin } from './resource-url';
+import { isCrossOrigin, normalizeUrl } from './resource-url';
 import { isExecutableScriptType, scriptTypeString } from './script-type';
 
-/** The file a same-origin URL names: a cache-busting query or a fragment is not part of it. */
+/** The file a same-origin URL names, read as the browser reads it; a query or a fragment is not part of it. */
 function filePathOf(url: string): string {
-  return url.replace(/[?#].*$/, '');
+  return normalizeUrl(url).replace(/[?#].*$/, '');
 }
 
 export interface EagerScriptEntry {
