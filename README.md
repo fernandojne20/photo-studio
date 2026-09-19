@@ -80,6 +80,8 @@ Unset (or an invalid value, such as a non-`https` origin or a URL with a path), 
 
 Like `PUBLIC_TURNSTILE_SITE_KEY` above, it is inlined at build time, so it must be set in whatever environment actually runs `astro build`, not only as a deployed Worker variable. See `src/lib/seo.ts` (`resolveSiteUrl`) for the exact validation rules.
 
+When the homepage hero has no Sanity image (the repository fallback content), the sharing image falls back to the static brand card `public/og-fallback.png` — the `lh` monogram, no photo — generated deterministically by `pnpm share-image:generate` (`scripts/generate-share-fallback.ts`) from `src/assets/logo/lh-monogram.svg`; re-run it whenever that SVG changes.
+
 ## Repository layout
 
 - `src/` — the Astro site: pages, layouts, components, content mapping, and the Sanity client

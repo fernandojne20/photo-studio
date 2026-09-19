@@ -278,3 +278,15 @@ export function buildWhatsAppUrl(config: WhatsAppConfig): string {
   const encodedMessage = encodeURIComponent(config.defaultMessage);
   return `https://wa.me/${digitsOnly}?text=${encodedMessage}`;
 }
+
+/**
+ * Alt text for the static Open Graph/Twitter fallback card
+ * (`public/og-fallback.png`, see `resolveShareImage` in
+ * `src/lib/seo-image.ts`), used when the homepage hero has no Sanity image.
+ * Takes the name as a parameter instead of reading `site.name` directly so
+ * it never has to duplicate that string, and so `Seo.astro` (the only
+ * caller) stays the single place that reads `site.ts`.
+ */
+export function buildShareImageFallbackAlt(name: string): string {
+  return `Monograma de ${name}`;
+}
