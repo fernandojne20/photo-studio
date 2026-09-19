@@ -38,12 +38,14 @@ interface Props {
   description: string;
   /** Homepage hero image, used to derive the 1200x630 sharing image. Omit on a page with no hero. */
   heroImage?: CmsImage;
+  /** Forces `noindex, nofollow` and no canonical/`og:url` regardless of `PUBLIC_SITE_URL` — e.g. the 404 page. */
+  forceNonIndexable?: boolean;
 }
 
-const { title, description, heroImage } = Astro.props;
+const { title, description, heroImage, forceNonIndexable } = Astro.props;
 
 const siteUrl = resolveSiteUrl(PUBLIC_SITE_URL);
-const policy = resolveIndexingPolicy(siteUrl);
+const policy = resolveIndexingPolicy(siteUrl, { forceNonIndexable });
 const robotsContent = buildRobotsMetaContent(policy.indexable);
 const ogLocale = buildOpenGraphLocale(site.locale);
 const shareImage = resolveShareImage(heroImage, siteUrl, buildShareImageFallbackAlt(site.name));

@@ -17,11 +17,13 @@
 # - PUBLIC_TURNSTILE_SITE_KEY is `access: 'public'`, which means it is
 #   inlined as a literal into the built JavaScript at BUILD time. It must
 #   exist in whatever environment actually RUNS `astro build`/`astro dev`
-#   (locally: this file, or `.env` — both work, and `.dev.vars` wins if
-#   both are set; in a deploy pipeline: the build step's own environment
-#   variables, or a `.env` file it can read — never a Cloudflare Worker
-#   `vars`/secret set only at or after deploy time, since that has no
-#   effect on a bundle that was already built).
+#   (locally: this file, or `.env` — both work). `@astrojs/cloudflare`
+#   loads this file unconditionally into `process.env` before the build
+#   (`loadWranglerEnv`, `utils/wrangler-config.js`), so a value set here
+#   OVERWRITES an already-exported shell variable of the same name too,
+#   not just `.env` — never a Cloudflare Worker `vars`/secret set only at
+#   or after deploy time, since that has no effect on an already-built
+#   bundle.
 
 # Cloudflare Turnstile — official, publicly documented TEST keys (safe to
 # commit; they only work in Turnstile's test/sandbox mode, never in

@@ -54,9 +54,17 @@ export interface IndexingPolicy {
   canonical?: string;
 }
 
+export interface IndexingPolicyOptions {
+  /** Forces `{ indexable: false }` regardless of `siteUrl` — e.g. the 404 page. */
+  forceNonIndexable?: boolean;
+}
+
 /** The single decision every other builder below is driven by. */
-export function resolveIndexingPolicy(siteUrl: URL | undefined): IndexingPolicy {
-  if (!siteUrl) return { indexable: false };
+export function resolveIndexingPolicy(
+  siteUrl: URL | undefined,
+  options?: IndexingPolicyOptions,
+): IndexingPolicy {
+  if (!siteUrl || options?.forceNonIndexable) return { indexable: false };
   return { indexable: true, canonical: siteUrl.toString() };
 }
 

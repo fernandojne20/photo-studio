@@ -116,7 +116,14 @@ export interface AccessibilityLabels {
   servicesCarouselNext: string;
 }
 
+export interface NotFoundCopy {
+  heading: string;
+  message: string;
+  homeLinkLabel: string;
+}
+
 export interface SiteCopy {
+  notFound: NotFoundCopy;
   welcomeHeading: string;
   welcomeParagraphs: [string, string];
   portfolioHeading: string;
@@ -178,6 +185,11 @@ export const site: SiteConfig = {
   ],
 
   copy: {
+    notFound: {
+      heading: 'Página no encontrada',
+      message: 'Esta página no existe o cambió de lugar.',
+      homeLinkLabel: 'Volver al inicio',
+    },
     welcomeHeading: 'Bienvenidos',
     welcomeParagraphs: [
       'Cada proyecto, cada celebración, cada familia, cada instante tienen una historia única. Tener el privilegio de inmortalizar esos momentos y formar parte de ellos es un verdadero honor para mí.',

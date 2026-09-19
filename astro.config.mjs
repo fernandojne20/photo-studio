@@ -1,17 +1,28 @@
 // @ts-check
-import { rmSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import cloudflare from '@astrojs/cloudflare';
 import { defineConfig, envField, fontProviders } from 'astro/config';
+import {
+  CSP_DIRECTIVES,
+  SCRIPT_RESOURCES,
+  STYLE_RESOURCES,
+  assertHomepageIndexingConsistent,
+  assertNotFoundPageNonIndexable,
+  assertNoForeignHeadersContent,
+  buildContentSecurityPolicyHeader,
+  buildHeadersFile,
+  extractCspMetaContent,
+  extractRobotsMetaContent,
+  findBlockedImageOrigins,
+} from './src/lib/security-headers.mjs';
 
 /**
- * `src/pages/sitemap.xml.ts` answers a bodyless 404 when there is no
- * canonical URL. Astro core would skip writing a file for that response,
- * but the Cloudflare adapter's prerender step buffers the response and
- * rebuilds it (`@astrojs/cloudflare/dist/utils/prerender.js`,
- * `handlePrerenderRequest`), so the body is no longer `null` and a 0-byte
- * `sitemap.xml` is written. An empty sitemap is invalid, so this hook
- * deletes the file, and only when it is empty.
+ * `src/pages/sitemap.xml.ts` answers a bodyless 404 without a canonical
+ * URL, but the Cloudflare adapter's prerender step still writes a 0-byte
+ * file for it (`@astrojs/cloudflare/dist/utils/prerender.js`). An empty
+ * sitemap is invalid, so this hook deletes it, only when empty.
  */
 /** @type {import('astro').AstroIntegration} */
 const removeEmptySitemap = {
@@ -28,9 +39,76 @@ const removeEmptySitemap = {
   },
 };
 
+/**
+ * Writes `dist/client/_headers` (PD-04): security headers, the CSP merged
+ * from every built page's `<meta>`, and `X-Robots-Tag` when non-indexable.
+ * `@astrojs/cloudflare` is unshifted to the front of Astro's integration
+ * list (`astro/dist/integrations/hooks.js`), so its own `astro:build:done`
+ * — which writes a starter `_headers` with only the `/_astro/*` cache rule
+ * — always runs first; this hook asserts that, then replaces it.
+ */
+/** @type {import('astro').AstroIntegration} */
+const injectSecurityHeaders = {
+  name: 'inject-security-headers',
+  hooks: {
+    'astro:build:done': ({ dir, logger }) => {
+      const root = fileURLToPath(dir);
+      const headersPath = join(root, '_headers');
+      const indexPath = join(root, 'index.html');
+      const sitemapPath = join(root, 'sitemap.xml');
+
+      let existingHeaders = '';
+      try {
+        existingHeaders = readFileSync(headersPath, 'utf8');
+      } catch {
+        // No adapter output yet — nothing foreign to guard against.
+      }
+      assertNoForeignHeadersContent(existingHeaders);
+
+      const sitemapExists = existsSync(sitemapPath);
+      assertHomepageIndexingConsistent({
+        robotsContent: extractRobotsMetaContent(readFileSync(indexPath, 'utf8')),
+        sitemapExists,
+      });
+
+      const notFoundPath = join(root, '404.html');
+      if (existsSync(notFoundPath)) {
+        assertNotFoundPageNonIndexable(
+          extractRobotsMetaContent(readFileSync(notFoundPath, 'utf8')),
+        );
+      }
+
+      const htmlDocuments = readdirSync(root, { recursive: true, encoding: 'utf8' })
+        .filter((entry) => entry.endsWith('.html'))
+        .map((entry) => readFileSync(join(root, entry), 'utf8'));
+      const contentSecurityPolicy = buildContentSecurityPolicyHeader(htmlDocuments);
+
+      // Fallback content uses remote placeholder photos the policy blocks.
+      const blockedImageOrigins = [
+        ...new Set(
+          htmlDocuments.flatMap((html) =>
+            findBlockedImageOrigins(html, extractCspMetaContent(html)),
+          ),
+        ),
+      ];
+      if (blockedImageOrigins.length > 0) {
+        logger.warn(
+          `Images from ${blockedImageOrigins.join(', ')} are blocked by the Content Security Policy. ` +
+            'This looks like fallback content: the build is not deployable as is.',
+        );
+      }
+
+      writeFileSync(
+        headersPath,
+        buildHeadersFile({ indexable: sitemapExists, contentSecurityPolicy }),
+      );
+    },
+  },
+};
+
 // https://astro.build/config
 export default defineConfig({
-  integrations: [removeEmptySitemap],
+  integrations: [removeEmptySitemap, injectSecurityHeaders],
   // No `site:` option here on purpose: this file is loaded with a plain
   // Node `import()` before Vite (and its `.env` loading) ever starts, so
   // `process.env.PUBLIC_SITE_URL` here would only ever see a shell
@@ -62,6 +140,19 @@ export default defineConfig({
   // requesting the binding).
   session: false,
   adapter: cloudflare({ imageService: 'compile' }),
+  // `<meta http-equiv="content-security-policy">` on every page: the only
+  // delivery mechanism here, since `@astrojs/cloudflare` does not declare
+  // `adapterFeatures.staticHeaders` (`astro/dist/manifest/serialized.js`).
+  // `injectSecurityHeaders` above also merges this into a real header;
+  // see the "Security headers" section of `README.md` for the full
+  // rationale behind each directive and resource below.
+  security: {
+    csp: {
+      directives: CSP_DIRECTIVES,
+      scriptDirective: { resources: SCRIPT_RESOURCES },
+      styleDirective: { resources: STYLE_RESOURCES },
+    },
+  },
   env: {
     schema: {
       // Secrets are read at *runtime* from the Worker's own environment

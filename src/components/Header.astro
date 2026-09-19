@@ -3,12 +3,26 @@ import { site, buildWhatsAppUrl } from '../config/site';
 import WhatsApp from './icons/WhatsApp.astro';
 import Instagram from './icons/Instagram.astro';
 
+interface Props {
+  /**
+   * `overlay` (default) sits on top of the dark hero of the homepage, in
+   * white. `solid` is for pages with a light background and no hero: it
+   * takes its own space, uses the text color, marks no item as current and
+   * points the in-page anchors back to the homepage.
+   */
+  variant?: 'overlay' | 'solid';
+}
+
+const { variant = 'overlay' } = Astro.props;
+const isHomepage = variant === 'overlay';
 const visibleItems = site.navigation.filter((item) => item.visible);
 const whatsAppUrl = buildWhatsAppUrl(site.whatsapp);
 const { a11y } = site.copy;
+const resolveHref = (href: string | undefined) =>
+  !isHomepage && href?.startsWith('#') ? `/${href}` : href;
 ---
 
-<header class="header">
+<header class:list={['header', { 'header--solid': !isHomepage }]}>
   <div class="header__row container">
     <div class="header__icons">
       <a
@@ -31,7 +45,7 @@ const { a11y } = site.copy;
       </a>
     </div>
 
-    <a class="header__brand" href="#inicio" aria-label={a11y.goHome}>
+    <a class="header__brand" href={resolveHref('#inicio')} aria-label={a11y.goHome}>
       <span>{site.name.split(' ')[0]}</span>
       <span>{site.name.split(' ').slice(1).join(' ')}</span>
     </a>
@@ -39,8 +53,8 @@ const { a11y } = site.copy;
     <nav class="header__nav" aria-label={a11y.mainMenu}>
       <ul role="list" class="header__nav-list">
         {visibleItems.map((item) => {
-          const href = item.kind === 'whatsapp' ? whatsAppUrl : item.href;
-          const isCurrent = item.id === 'lau';
+          const href = item.kind === 'whatsapp' ? whatsAppUrl : resolveHref(item.href);
+          const isCurrent = isHomepage && item.id === 'lau';
           return (
             <li>
               <a
@@ -80,7 +94,7 @@ const { a11y } = site.copy;
   <nav id="mobile-menu" class="header__mobile-nav" aria-label={a11y.mainMenu} hidden>
     <ul role="list" class="header__mobile-nav-list">
       {visibleItems.map((item) => {
-        const href = item.kind === 'whatsapp' ? whatsAppUrl : item.href;
+        const href = item.kind === 'whatsapp' ? whatsAppUrl : resolveHref(item.href);
         return (
           <li>
             <a
@@ -105,6 +119,16 @@ const { a11y } = site.copy;
     top: 0;
     z-index: 20;
     color: var(--color-text-hero);
+  }
+
+  /* Light pages without a hero: in the flow, in the text color. */
+  .header--solid {
+    position: relative;
+    color: var(--color-text);
+  }
+
+  .header--solid .header__row {
+    border-bottom-color: var(--color-hairline);
   }
 
   /* Desktop: icons left, nav centered (mockup); the brand and toggle are mobile-only. */
