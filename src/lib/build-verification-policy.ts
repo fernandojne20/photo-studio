@@ -118,11 +118,19 @@ function parseCspContent(content: string): CspDirective[] {
     });
 }
 
-function findCspMetaContents(liveHtml: string): string[] {
-  return findTags(liveHtml, ['meta'])
-    .map(parseAttributes)
-    .filter((attrs) => attrs['http-equiv']?.toLowerCase() === 'content-security-policy')
-    .map((attrs) => attrs.content ?? '');
+/** Policy metas split at `<body>`: a browser only obeys one that sits in `<head>`. */
+function findCspMetaContents(liveHtml: string): { inHead: string[]; ignored: number } {
+  const inHead: string[] = [];
+  let ignored = 0;
+  let inBody = false;
+  for (const tag of findTags(liveHtml, ['body', 'meta'])) {
+    if (/^<body/i.test(tag)) inBody = true;
+    const attrs = parseAttributes(tag);
+    if (attrs['http-equiv']?.toLowerCase() !== 'content-security-policy') continue;
+    if (inBody) ignored += 1;
+    else inHead.push(attrs.content ?? '');
+  }
+  return { inHead, ignored };
 }
 
 /** Directive name -> expected non-hash tokens, derived straight from `security-headers.mjs`. */
@@ -345,7 +353,11 @@ export function checkContentSecurityPolicy(input: {
   const pagesDirectives: CspDirective[][] = [];
 
   for (const [pageIndex, html] of input.pageHtmls.entries()) {
-    const contents = findCspMetaContents(stripInertMarkup(html));
+    const { inHead: contents, ignored } = findCspMetaContents(stripInertMarkup(html));
+    if (ignored > 0)
+      problems.push(
+        `page ${pageIndex}: ${ignored} Content-Security-Policy <meta> after <body>, which browsers ignore.`,
+      );
     // Browsers enforce EVERY delivered policy, so a second one could block
     // the site while the first still looks compliant.
     if (contents.length > 1)

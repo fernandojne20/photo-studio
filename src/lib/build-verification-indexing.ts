@@ -206,6 +206,12 @@ function checkRobotsRules(robotsTxt: string): string[] {
       problems.push('robots.txt must disallow "/api/" for every crawler.');
   }
   for (const group of groups) {
+    // A crawler with a group of its own ignores the `*` group entirely.
+    const closesApi = group.rules.some(
+      (rule) => rule.directive === 'disallow' && robotsPatternMatches(rule.path, '/api/'),
+    );
+    if (group !== everyone && !closesApi)
+      problems.push(`robots.txt must disallow "/api/" for ${group.agents.join(', ')} too.`);
     if (blocksHomepage(group))
       problems.push(
         `robots.txt must not disallow "/" in either mode, found it for ${group.agents.join(', ')}.`,

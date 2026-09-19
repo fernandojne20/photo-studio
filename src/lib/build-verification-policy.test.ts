@@ -255,6 +255,25 @@ describe('every delivered policy is enforced', () => {
     ]);
   });
 
+  it('rejects a policy meta that only appears after <body>, where browsers ignore it', () => {
+    const problems = checkContentSecurityPolicy({
+      pageHtmls: [`<head></head><body>${page(COMPLIANT_POLICY)}</body>`],
+      headersText: headersText(),
+    });
+    expect(problems).toContain(
+      'page 0: 1 Content-Security-Policy <meta> after <body>, which browsers ignore.',
+    );
+    expect(problems).toContain('page 0: no live Content-Security-Policy <meta> tag.');
+  });
+
+  it('accepts the policy meta in <head> of a page that has a body', () => {
+    const problems = checkContentSecurityPolicy({
+      pageHtmls: [`<head>${page(COMPLIANT_POLICY)}</head><body><p>x</p></body>`],
+      headersText: headersText(),
+    });
+    expect(problems).toEqual([]);
+  });
+
   it('does not count a policy meta inside a comment or noscript as a second one', () => {
     const html = `${page(COMPLIANT_POLICY)}<!-- ${page("default-src 'none'")} --><noscript>${page("default-src 'none'")}</noscript>`;
     expect(checkContentSecurityPolicy({ pageHtmls: [html], headersText: headersText() })).toEqual(

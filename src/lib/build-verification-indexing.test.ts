@@ -459,6 +459,14 @@ describe('robots.txt rules belong to the group every crawler reads', () => {
     ).toEqual(['robots.txt must not disallow "/" in either mode, found it for bingbot.']);
   });
 
+  it('rejects a crawler group that does not repeat Disallow: /api/', () => {
+    const own = 'User-agent: Googlebot\nAllow: /\n';
+    expect(robotsProblems(`${ROBOTS_TXT}\n${own}`)).toEqual([
+      'robots.txt must disallow "/api/" for googlebot too.',
+    ]);
+    expect(robotsProblems(`${ROBOTS_TXT}\n${own}Disallow: /api/\n`)).toEqual([]);
+  });
+
   it('reads several User-agent lines as one group', () => {
     expect(
       robotsProblems('User-agent: Googlebot\nUser-agent: *\nAllow: /\nDisallow: /api/\n'),
@@ -540,7 +548,9 @@ describe('directives are read as crawlers read them', () => {
     'rejects a crawler group whose Disallow %s matches the homepage',
     (pattern) => {
       expect(
-        nonIndexable({ robotsTxt: `${ROBOTS_TXT}\nUser-agent: Bingbot\nDisallow: ${pattern}\n` }),
+        nonIndexable({
+          robotsTxt: `${ROBOTS_TXT}\nUser-agent: Bingbot\nDisallow: /api/\nDisallow: ${pattern}\n`,
+        }),
       ).toEqual(['robots.txt must not disallow "/" in either mode, found it for bingbot.']);
     },
   );

@@ -18,14 +18,19 @@ const LINK_KIND_EVENT: Record<LinkKind, AnalyticsEventName> = {
   phone: 'phone_click',
   instagram: 'instagram_click',
 };
-/** The call to action schema accepts `http:` too, and those links still reach WhatsApp. */
-const WHATSAPP_PREFIXES = [
-  'https://wa.me/',
-  'http://wa.me/',
-  'https://api.whatsapp.com/',
-  'http://api.whatsapp.com/',
-  'whatsapp:',
-];
+/** `http:` counts too: the call to action schema accepts it and the link still reaches WhatsApp. */
+const WHATSAPP_HOSTS: ReadonlySet<string> = new Set(['wa.me', 'api.whatsapp.com']);
+
+/** By parsed host, as the browser resolves it: `https://wa.me?text=x` counts, `wa.me.evil.test` does not. */
+function isWhatsAppUrl(href: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(href);
+    if (protocol === 'whatsapp:') return true;
+    return (protocol === 'https:' || protocol === 'http:') && WHATSAPP_HOSTS.has(hostname);
+  } catch {
+    return false;
+  }
+}
 const MARKUP_EVENT_SET: ReadonlySet<string> = new Set(MARKUP_ANALYTICS_EVENT_NAMES);
 const PLACEMENT_SET: ReadonlySet<string> = new Set(ANALYTICS_PLACEMENTS);
 
@@ -67,7 +72,7 @@ function isCrossOrigin(url: string): boolean {
 
 function classifyLinkKind(rawHref: string, instagramUrl: string): LinkKind | undefined {
   const lower = normalizeUrl(rawHref).toLowerCase();
-  if (WHATSAPP_PREFIXES.some((prefix) => lower.startsWith(prefix))) return 'whatsapp';
+  if (isWhatsAppUrl(rawHref)) return 'whatsapp';
   if (lower.startsWith('mailto:')) return 'email';
   if (lower.startsWith('tel:')) return 'phone';
   if (withoutTrailingSlash(lower) === withoutTrailingSlash(instagramUrl.toLowerCase()))
