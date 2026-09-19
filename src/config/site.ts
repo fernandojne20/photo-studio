@@ -134,9 +134,8 @@ export interface SiteConfig {
   name: string;
   tagline: string;
   locale: string;
+  /** Also used as the head `<meta name="description">` (see `Seo.astro`). */
   description: string;
-  /** TODO: replace with the production domain once it is confirmed. */
-  url: string;
   whatsapp: WhatsAppConfig;
   contact: ContactConfig;
   instagram: InstagramConfig;
@@ -148,8 +147,8 @@ export const site: SiteConfig = {
   name: 'Laury Herrera',
   tagline: 'Creando recuerdos para toda la vida.',
   locale: 'es-AR',
-  description: 'Fotografía de familia, niños y retratos. Estudio, exteriores, domicilio y eventos.',
-  url: 'https://example.com',
+  description:
+    'Fotografía de familia, niños y retratos en estudio, exteriores, domicilio o eventos. Momentos únicos convertidos en recuerdos para toda la vida.',
 
   whatsapp: {
     phoneE164: '+5491126821220',
