@@ -1,9 +1,46 @@
 // @ts-check
+import { rmSync, statSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import cloudflare from '@astrojs/cloudflare';
 import { defineConfig, envField, fontProviders } from 'astro/config';
 
+/**
+ * `src/pages/sitemap.xml.ts` answers a bodyless 404 when there is no
+ * canonical URL. Astro core would skip writing a file for that response,
+ * but the Cloudflare adapter's prerender step buffers the response and
+ * rebuilds it (`@astrojs/cloudflare/dist/utils/prerender.js`,
+ * `handlePrerenderRequest`), so the body is no longer `null` and a 0-byte
+ * `sitemap.xml` is written. An empty sitemap is invalid, so this hook
+ * deletes the file, and only when it is empty.
+ */
+/** @type {import('astro').AstroIntegration} */
+const removeEmptySitemap = {
+  name: 'remove-empty-sitemap',
+  hooks: {
+    'astro:build:done': ({ dir }) => {
+      const sitemapPath = fileURLToPath(new URL('sitemap.xml', dir));
+      try {
+        if (statSync(sitemapPath).size === 0) rmSync(sitemapPath);
+      } catch {
+        // Already absent — nothing to clean up.
+      }
+    },
+  },
+};
+
 // https://astro.build/config
 export default defineConfig({
+  integrations: [removeEmptySitemap],
+  // No `site:` option here on purpose: this file is loaded with a plain
+  // Node `import()` before Vite (and its `.env` loading) ever starts, so
+  // `process.env.PUBLIC_SITE_URL` here would only ever see a shell
+  // variable, never a `.env` value — a silent footgun (validates, but
+  // `Astro.site` stays `undefined`). `PUBLIC_SITE_URL` is read once Vite is
+  // running instead, via `astro:env/client` in `Seo.astro`,
+  // `robots.txt.ts` and `sitemap.xml.ts` (see the schema entry below and
+  // `resolveSiteUrl` in `src/lib/seo.ts`), where both `.env` and shell
+  // variables work the same way.
+  //
   // The homepage stays a prerendered static file that fetches Sanity content
   // at build time (see `src/content/home.ts`); only `src/pages/api/contact.ts`
   // opts out with `export const prerender = false`. `@astrojs/cloudflare`
@@ -63,6 +100,19 @@ export default defineConfig({
         context: 'client',
         access: 'public',
         optional: true,
+      }),
+      // Build-time, optional, same rules as `PUBLIC_TURNSTILE_SITE_KEY`
+      // above. The single source of truth for the production origin: read
+      // via `astro:env/client` and normalized by `resolveSiteUrl`
+      // (`src/lib/seo.ts`). `url: true` only checks it parses as *some*
+      // URL; the stricter https-only-plus-bare-origin policy lives in
+      // `resolveSiteUrl`, so a syntactically valid but rejected value never
+      // fails the build — it safely degrades to "not indexable" instead.
+      PUBLIC_SITE_URL: envField.string({
+        context: 'client',
+        access: 'public',
+        optional: true,
+        url: true,
       }),
     },
   },

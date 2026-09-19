@@ -72,6 +72,16 @@ The runtime/build-time split matters for where each variable actually has to liv
 
 `.dev.vars.example` documents every variable and ships with Cloudflare's official Turnstile _test_ keys, safe to keep as-is for development (see the comments in the file for the always-fails/always-blocks alternates, and for the same runtime/build-time explanation).
 
+## Production URL and indexing
+
+`PUBLIC_SITE_URL` is optional and build-time: the absolute production origin (e.g. `https://www.example.com`, no path). It drives whether the built site claims to be indexable — the canonical link, Open Graph/JSON-LD URL, an allowing `robots.txt` with a `Sitemap:` line, and `sitemap.xml` itself all depend on it.
+
+Unset (or an invalid value, such as a non-`https` origin or a URL with a path), the build defaults to safe and non-indexable: `noindex, nofollow`, no canonical URL, and no `sitemap.xml` file at all — so a preview deployed anywhere (`workers.dev`, a branch preview) can never compete with the real domain in search results. `pnpm build` and `pnpm check` need it unset.
+
+Like `PUBLIC_TURNSTILE_SITE_KEY` above, it is inlined at build time, so it must be set in whatever environment actually runs `astro build`, not only as a deployed Worker variable. See `src/lib/seo.ts` (`resolveSiteUrl`) for the exact validation rules.
+
+When the homepage hero has no Sanity image (the repository fallback content), the sharing image falls back to the static brand card `public/og-fallback.png` — the `lh` monogram, no photo — generated deterministically by `pnpm share-image:generate` (`scripts/generate-share-fallback.ts`) from `src/assets/logo/lh-monogram.svg`; re-run it whenever that SVG changes.
+
 ## Repository layout
 
 - `src/` — the Astro site: pages, layouts, components, content mapping, and the Sanity client

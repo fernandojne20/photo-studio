@@ -134,9 +134,8 @@ export interface SiteConfig {
   name: string;
   tagline: string;
   locale: string;
+  /** Also used as the head `<meta name="description">` (see `Seo.astro`). */
   description: string;
-  /** TODO: replace with the production domain once it is confirmed. */
-  url: string;
   whatsapp: WhatsAppConfig;
   contact: ContactConfig;
   instagram: InstagramConfig;
@@ -148,8 +147,8 @@ export const site: SiteConfig = {
   name: 'Laury Herrera',
   tagline: 'Creando recuerdos para toda la vida.',
   locale: 'es-AR',
-  description: 'Fotografía de familia, niños y retratos. Estudio, exteriores, domicilio y eventos.',
-  url: 'https://example.com',
+  description:
+    'Fotografía de familia, niños y retratos en estudio, exteriores, domicilio o eventos. Momentos únicos convertidos en recuerdos para toda la vida.',
 
   whatsapp: {
     phoneE164: '+5491126821220',
@@ -278,4 +277,16 @@ export function buildWhatsAppUrl(config: WhatsAppConfig): string {
   const digitsOnly = config.phoneE164.replace(/\D/g, '');
   const encodedMessage = encodeURIComponent(config.defaultMessage);
   return `https://wa.me/${digitsOnly}?text=${encodedMessage}`;
+}
+
+/**
+ * Alt text for the static Open Graph/Twitter fallback card
+ * (`public/og-fallback.png`, see `resolveShareImage` in
+ * `src/lib/seo-image.ts`), used when the homepage hero has no Sanity image.
+ * Takes the name as a parameter instead of reading `site.name` directly so
+ * it never has to duplicate that string, and so `Seo.astro` (the only
+ * caller) stays the single place that reads `site.ts`.
+ */
+export function buildShareImageFallbackAlt(name: string): string {
+  return `Monograma de ${name}`;
 }
