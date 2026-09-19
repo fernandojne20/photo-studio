@@ -233,6 +233,24 @@ function showFormError(form: HTMLFormElement, text: string): void {
   showStatus(form, '');
 }
 
+/**
+ * Locks the visible fields for the duration of an attempt. The values are
+ * read once, when the visitor submits, and an interactive Turnstile
+ * challenge can keep the attempt open for a long time: without this lock
+ * an edit made meanwhile would be left out of the request and then erased
+ * by the `form.reset()` that follows a success. `readOnly`, not
+ * `disabled`: a read-only field keeps its focus, stays in the tab order
+ * and is still announced, and it cannot be edited.
+ */
+function setFieldsLocked(form: HTMLFormElement, locked: boolean): void {
+  CONTACT_FIELD_ORDER.forEach((field) => {
+    const input = fieldInput(form, field);
+    if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
+      input.readOnly = locked;
+    }
+  });
+}
+
 function setBusy(
   form: HTMLFormElement,
   submitButton: HTMLButtonElement | null,
@@ -241,6 +259,7 @@ function setBusy(
 ): void {
   form.dataset.busy = busy ? 'true' : 'false';
   form.setAttribute('aria-busy', busy ? 'true' : 'false');
+  setFieldsLocked(form, busy);
   if (!submitButton) return;
   // `aria-disabled`, never the `disabled` property, while the button may
   // hold focus: a browser drops focus to `<body>` when a focused element
