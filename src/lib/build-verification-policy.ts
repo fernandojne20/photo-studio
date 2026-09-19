@@ -262,7 +262,14 @@ export function checkContentSecurityPolicy(input: {
   const pagesDirectives: CspDirective[][] = [];
 
   for (const [pageIndex, html] of input.pageHtmls.entries()) {
-    const [content] = findCspMetaContents(stripInertMarkup(html));
+    const contents = findCspMetaContents(stripInertMarkup(html));
+    // Browsers enforce EVERY delivered policy, so a second one could block
+    // the site while the first still looks compliant.
+    if (contents.length > 1)
+      problems.push(
+        `page ${pageIndex}: ${contents.length} live Content-Security-Policy <meta> tags; there must be exactly one.`,
+      );
+    const [content] = contents;
     if (!content) {
       problems.push(`page ${pageIndex}: no live Content-Security-Policy <meta> tag.`);
       continue;

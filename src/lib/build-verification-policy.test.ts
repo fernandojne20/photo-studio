@@ -229,3 +229,19 @@ describe('the floor does not depend on the declared policy', () => {
     expect(problems).toContain(`page 0 policy: "default-src" must be 'none'.`);
   });
 });
+
+describe('every delivered policy is enforced', () => {
+  it('rejects a second live policy meta, however strict it is', () => {
+    const html = `${page(COMPLIANT_POLICY)}${page("default-src 'none'")}`;
+    expect(checkContentSecurityPolicy({ pageHtmls: [html], headersText: headersText() })).toEqual([
+      'page 0: 2 live Content-Security-Policy <meta> tags; there must be exactly one.',
+    ]);
+  });
+
+  it('does not count a policy meta inside a comment or noscript as a second one', () => {
+    const html = `${page(COMPLIANT_POLICY)}<!-- ${page("default-src 'none'")} --><noscript>${page("default-src 'none'")}</noscript>`;
+    expect(checkContentSecurityPolicy({ pageHtmls: [html], headersText: headersText() })).toEqual(
+      [],
+    );
+  });
+});
