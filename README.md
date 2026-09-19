@@ -47,6 +47,31 @@ which runs lint, format check, typecheck, the unit tests, the generated-types dr
 
 One difference is intentional: locally the site build runs without `CONTENT_FALLBACKS`, so it fetches the real Sanity content from your `.env` and fails on a broken content contract, while CI builds with fallbacks enabled.
 
+## Contact form configuration
+
+The homepage stays a static, prerendered site; only `POST /api/contact` runs on demand, through the `@astrojs/cloudflare` adapter, to validate a submission, verify a Cloudflare Turnstile captcha, and deliver it by email through Resend. All five variables are optional, and they split into two genuinely different kinds:
+
+| Variable                    | Used by                        | When it's read                                     |
+| --------------------------- | ------------------------------ | -------------------------------------------------- |
+| `TURNSTILE_SECRET_KEY`      | Verifying the captcha (server) | **Runtime**, from the Worker environment           |
+| `RESEND_API_KEY`            | Sending the email (server)     | **Runtime**, from the Worker environment           |
+| `CONTACT_FROM_EMAIL`        | Sending the email (server)     | **Runtime**, from the Worker environment           |
+| `CONTACT_TO_EMAIL`          | Sending the email (server)     | **Runtime**, from the Worker environment           |
+| `PUBLIC_TURNSTILE_SITE_KEY` | Rendering the widget (client)  | **Build time** — inlined into the built JavaScript |
+
+Until `RESEND_API_KEY`, `CONTACT_FROM_EMAIL`, and `CONTACT_TO_EMAIL` are all set, the endpoint answers `503 { ok: false, code: 'not_configured' }` — it never pretends to have sent anything. `pnpm build` and `pnpm check` need none of these set.
+
+The runtime/build-time split matters for where each variable actually has to live:
+
+- The four **runtime** variables (`TURNSTILE_SECRET_KEY`, `RESEND_API_KEY`, `CONTACT_FROM_EMAIL`, `CONTACT_TO_EMAIL`) are declared `access: 'secret'` in `astro.config.mjs`'s `env.schema`, so Astro never bakes a value for them into the build; the route reads them from the Worker's own environment when the Worker starts. Changing one needs no rebuild of the site, only the Worker picking up its new environment.
+  - **Locally**: set them in `.dev.vars` (copy from `.dev.vars.example`, gitignored).
+  - **In production**: set with `wrangler secret put <NAME>` (or as a `vars` entry in `wrangler.jsonc` for the two addresses, which are not sensitive) — this can be done independently of any build or deploy.
+- `PUBLIC_TURNSTILE_SITE_KEY` is declared `access: 'public'`, which Astro inlines as a literal string into the built JavaScript at build time (this is Astro's own behavior for every `access: 'public'` `astro:env` variable, not specific to this project). It must therefore exist in the environment that actually **runs** `astro build` — whichever build produces the artifact that gets deployed.
+  - **Locally**: `.env` or `.dev.vars` both work (`pnpm dev`/`pnpm build` load `.dev.vars`-and-`wrangler.jsonc` `vars` into the build environment the same way `wrangler dev` would, in addition to `.env`; `.dev.vars` wins if both set the same variable).
+  - **In a deploy pipeline**: it must be exported as a real environment variable (or committed to a `.env` the pipeline reads) for the build step itself — setting it only as a deployed Worker `vars` entry has no effect on a bundle that was already built without it.
+
+`.dev.vars.example` documents every variable and ships with Cloudflare's official Turnstile _test_ keys, safe to keep as-is for development (see the comments in the file for the always-fails/always-blocks alternates, and for the same runtime/build-time explanation).
+
 ## Repository layout
 
 - `src/` — the Astro site: pages, layouts, components, content mapping, and the Sanity client
