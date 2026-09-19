@@ -116,6 +116,45 @@ document.addEventListener('studio:analytics', (event) => {
 
 Adding a vendor also means: extending `script-src` and `connect-src` in `src/lib/security-headers.mjs` (and `astro.config.mjs`'s `SCRIPT_RESOURCES`) for its script and reporting origins, and revisiting consent — none of that is done here. No personal data may ever be added to the vocabulary above, whatever the vendor asks for.
 
+## Build verification and budgets
+
+`pnpm build:verify --mode=indexable|non-indexable [--origin=https://...]` (PD-06) reads `dist/client` after a build and asserts what the `astro:build:done` hooks in `astro.config.mjs` do not. Every check reads through `src/lib/built-html.ts` — quote-aware tag matching, so an editor's own `>` inside `alt="antes > después"` can never truncate a match, plus a `stripInertMarkup` pass so a robots meta or a link commented out or trapped inside `<noscript>` is never mistaken for a live one:
+
+- **Indexing** (`src/lib/build-verification-indexing.ts`): the exact policy in both modes (canonical, `og:url`, `robots.txt` — including `Allow: /`/`Disallow: /api/`/no `Disallow: /` in BOTH modes — `sitemap.xml`, `_headers`' `X-Robots-Tag` under its `/*` rule, the 404 page, the JSON-LD block). More than one robots meta or canonical fails loudly: a search engine combines them.
+- **Policy** (`src/lib/build-verification-policy.ts`): the homepage and 404 page's Content Security Policy, compared directive-by-directive against `CSP_DIRECTIVES`/`SCRIPT_RESOURCES`/`STYLE_RESOURCES` in `src/lib/security-headers.mjs` — the single source of truth, so there is no separate hardcoded list of our own to fall out of sync or be quietly weakened. `_headers`' policy is then compared AGAINST the pages: identical non-hash tokens per directive, every page hash present, `frame-ancestors 'none'` its only addition. The security headers and the policy must sit under `_headers`' `/*` rule, not only `/_astro/*`.
+- **Markup** (`src/lib/build-verification-markup.ts`): every WhatsApp (`wa.me`, `api.whatsapp.com`, the `whatsapp:` scheme)/mailto/tel/Instagram link's `data-analytics-event`/`data-analytics-placement` on the BUILT pages, case-insensitively; the Instagram link must EQUAL the configured URL (one trailing slash normalized), not merely start with it. A source-text scan cannot see a new link with no attributes, or a wrong condition around them. Page hygiene lives here too: `<img>` `width`/`height`, exactly one non-lazy image, no cross-origin script or stylesheet.
+- **Budgets** (`src/lib/performance-budgets.ts`, measured by `src/lib/build-measurement.ts` + `scripts/measure-build.ts`): printed and checked on every run, table below.
+
+`scripts/verify-build.ts` wraps every check and the measuring individually: one throwing check becomes a single problem line naming it, and every other check still runs and reports. If `PUBLIC_SITE_URL` is set in the environment while verifying non-indexable, or while the built output is not actually indexable (an invalid value degrades silently instead of failing `astro build`), the check fails and names the variable. `pnpm check` and the `build` CI job run it in non-indexable mode right after their `pnpm build`; the `verify` CI job builds and runs it in indexable mode only, so nothing is built twice.
+
+Run it locally:
+
+```sh
+pnpm build && pnpm build:verify --mode=non-indexable
+PUBLIC_SITE_URL=https://www.example.com pnpm build && \
+  PUBLIC_SITE_URL=https://www.example.com pnpm build:verify --mode=indexable --origin=https://www.example.com
+```
+
+Budgets (`src/lib/performance-budgets.ts`), measured on real content 2026-09-19. Each byte/count budget a broken measurement could silently read as zero also has a `min` — a measurement below it, missing, non-finite or negative fails as "the measurement is probably broken", never as an empty pass:
+
+| Budget               | Measured | Limit    | Why                                                                                                                                                               |
+| -------------------- | -------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Homepage HTML, gzip  | 15.9 kB  | 40.0 kB  | Grows with the editor's content, which must never fail a build; only catches accidental inlining.                                                                 |
+| Eager JS, gzip       | 10.1 kB  | 24.0 kB  | `ServicesCarousel.astro` loads with a plain `<script>`, not `import()` — it is EAGER, and the editor's 5th service adds it (measured with the carousel: 17.8 kB). |
+| Lazy JS, gzip        | 16.9 kB  | 23.0 kB  | PhotoSwipe only: the carousel is eager, never lazy (see above). Headroom for a PhotoSwipe upgrade.                                                                |
+| Stylesheets, gzip    | 5.7 kB   | 7.5 kB   | One design system; a jump usually means an unscoped or duplicated rule.                                                                                           |
+| Eager script files   | 4        | 6        | Measured with a 5th placeholder service: 5 files (the carousel bundles Embla itself, no separate chunk). One spare.                                               |
+| Preloaded font bytes | 53.8 kB  | 70.0 kB  | Montserrat and Futura Light BT only (see "Font preloading").                                                                                                      |
+| Total font bytes     | 726.7 kB | 735.0 kB | Montserrat is fetched from Google at build time and can drift a little with no code change; the headroom is for that, not a new font.                             |
+
+Raising a budget needs a new `reason` in the table, not a bigger number with the same one.
+
+### Font preloading
+
+Only Montserrat (`--font-display`) and Futura Light BT (`--font-ui`) are marked `preload` in `BaseLayout.astro`: the header brand on mobile, the desktop nav, and the hero CTA all need one of them in the homepage's first viewport at both 1366 and 393 wide. DM Sans (`--font-body`) also paints text in that viewport — the Welcome section's first paragraph sits at about 725 px on a 393×800 phone — but stays unpreloaded on purpose: its 239 kB at high priority would compete with the hero photo, the page's actual largest contentful paint, for bandwidth. `font-display: swap` shows that line immediately in the fallback font instead, with no layout shift, because Astro's font API already emits a metric-adjusted fallback (`size-adjust`/`ascent-override`/`descent-override`) for DM Sans (as it does for Montserrat, Futura Light BT and Minion — Adelia is the one family with no such fallback block in the built output). Revisit this trade-off if the owner licenses DM Sans for WOFF2. This preload set cut preloaded bytes from all five fonts (726.7 kB) to two (53.8 kB).
+
+The four other font files are uncompressed desktop formats (`adelia.ttf` 135 kB, `futura-light-bt.ttf` 37 kB, `dm-sans-variable.ttf` 239 kB, `minion-variable-concept-roman.otf` 299 kB). Adelia, Futura Light BT and Minion are commercial fonts whose web licensing the owner has not confirmed, and converting a font's format is a licensing decision, so they are deliberately left as they are. DM Sans is open-licensed (SIL OFL): it can be served as WOFF2 through Astro's Google provider, like Montserrat, which is a follow-up and would make preloading it on mobile cheap. As an estimate, not a measurement, WOFF2 for all four would bring the total from about 727 kB to about 515 kB. The total font budget has almost no headroom for that reason: it must only go down.
+
 ## Repository layout
 
 - `src/` — the Astro site: pages, layouts, components, content mapping, and the Sanity client
