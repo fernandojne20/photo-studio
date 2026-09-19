@@ -86,6 +86,13 @@ describe('checkAnalyticsMarkup', () => {
       `<img alt="Foto &lt;script&gt;&quot;&lt;/script&gt;" width="1" height="1" loading="lazy">${WHATSAPP_LINK}`;
     expect(checkAnalyticsMarkup(html)).toEqual([]);
   });
+
+  it('does not treat an element merely named a@x as an anchor', () => {
+    const html =
+      '<a@x href="mailto:x" data-analytics-event="email_click" data-analytics-placement="contact">x</a@x>';
+    const problems = checkAnalyticsMarkup(html);
+    expect(problems.some((p) => p.includes('non-conversion element'))).toBe(true);
+  });
 });
 
 describe('checkPageHygiene', () => {
@@ -121,7 +128,7 @@ describe('checkPageHygiene', () => {
     expect(two.some((p) => p.includes('Expected exactly one non-lazy'))).toBe(true);
   });
 
-  it('does not truncate on an alt attribute containing > (the naive <img[^>]*> bug)', () => {
+  it('does not truncate on an alt attribute containing >', () => {
     const html =
       '<img alt="antes > despu&eacute;s" width="10" height="10" fetchpriority="high"><img alt="Foto <script>&quot;</script>" width="1" height="1" loading="lazy">';
     expect(checkPageHygiene(html)).toEqual([]);
@@ -131,6 +138,12 @@ describe('checkPageHygiene', () => {
     expect(
       checkPageHygiene('<noscript><img src="/a.jpg" width="1" height="1"></noscript>'),
     ).toEqual([]);
+  });
+
+  it('is not hidden from a cross-origin script by a comment ending in --!>', () => {
+    const html = '<!-- note --!><script src="https://evil.test/x.js"></script>';
+    const problems = checkPageHygiene(html);
+    expect(problems.some((p) => p.includes('Script from another origin'))).toBe(true);
   });
 });
 
@@ -164,10 +177,6 @@ describe('links and resources as the browser resolves them', () => {
       '<script src="&bsol;&bsol;evil.test/x.js"></script>',
     ],
     [
-      'a script URL with a named reference this reader cannot decode',
-      '<script src="&nvsim;evil.test/x.js"></script>',
-    ],
-    [
       'an external script after a tag whose name merely starts with script',
       '<script@x><script src="https://evil.test/x.js"></script>',
     ],
@@ -177,6 +186,10 @@ describe('links and resources as the browser resolves them', () => {
     ],
   ])('flags %s as cross-origin', (_label, html) => {
     expect(checkPageHygiene(html)).toHaveLength(1);
+  });
+
+  it('takes text that merely looks like a character reference for what it is: a relative URL', () => {
+    expect(checkPageHygiene('<script src="&bogus;evil.test/x.js"></script>')).toEqual([]);
   });
 
   it('accepts same-origin resources, absolute and relative', () => {

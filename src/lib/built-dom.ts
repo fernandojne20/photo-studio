@@ -100,6 +100,11 @@ function collect(
   }
 }
 
+/** `rel` is a space-separated token list: `rel="alternate stylesheet"` is a stylesheet. */
+export function hasRelToken(attrs: Readonly<Record<string, string>>, token: string): boolean {
+  return (attrs.rel ?? '').toLowerCase().split(/\s+/).includes(token);
+}
+
 export function readLiveElements(html: string): LiveElement[] {
   const cached = cache.get(html);
   if (cached) return cached;

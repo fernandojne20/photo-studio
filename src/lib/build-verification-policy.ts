@@ -10,14 +10,9 @@
  */
 
 import { createHash } from 'node:crypto';
-import {
-  findElementContents,
-  findTags,
-  getHeader,
-  parseAttributes,
-  parseHeadersFile,
-  stripInertMarkup,
-} from './built-html';
+import { readLiveElements } from './built-dom';
+import type { LiveElement } from './built-dom';
+import { getHeader, parseHeadersFile } from './built-html';
 import { CSP_DIRECTIVES, SCRIPT_RESOURCES, STYLE_RESOURCES } from './security-headers.mjs';
 
 interface CspDirective {
@@ -118,19 +113,20 @@ function parseCspContent(content: string): CspDirective[] {
     });
 }
 
-/** Policy metas split at `<body>`: a browser only obeys one that sits in `<head>`. */
-function findCspMetaContents(liveHtml: string): { inHead: string[]; ignored: number } {
-  const inHead: string[] = [];
-  let ignored = 0;
-  let inBody = false;
-  for (const tag of findTags(liveHtml, ['body', 'meta'])) {
-    if (/^<body/i.test(tag)) inBody = true;
-    const attrs = parseAttributes(tag);
-    if (attrs['http-equiv']?.toLowerCase() !== 'content-security-policy') continue;
-    if (inBody) ignored += 1;
-    else inHead.push(attrs.content ?? '');
-  }
-  return { inHead, ignored };
+/** A browser only obeys a Content-Security-Policy meta that sits in `<head>`. */
+function findCspMetaContents(elements: readonly LiveElement[]): {
+  inHead: string[];
+  outsideHead: number;
+} {
+  const metas = elements.filter(
+    (element) =>
+      element.name === 'meta' &&
+      element.attrs['http-equiv']?.toLowerCase() === 'content-security-policy',
+  );
+  return {
+    inHead: metas.filter((meta) => meta.inHead).map((meta) => meta.attrs.content ?? ''),
+    outsideHead: metas.filter((meta) => !meta.inHead).length,
+  };
 }
 
 /** Directive name -> expected non-hash tokens, derived straight from `security-headers.mjs`. */
@@ -300,7 +296,7 @@ function sha256Token(content: string): string {
  * block the page's own code. Data blocks such as JSON-LD are not executed.
  */
 function checkInlineContentHashes(
-  liveHtml: string,
+  elements: readonly LiveElement[],
   directives: readonly CspDirective[],
   where: string,
 ): string[] {
@@ -310,12 +306,17 @@ function checkInlineContentHashes(
   const scriptTokens = tokensOf('script-src');
   const styleTokens = tokensOf('style-src');
 
-  const scripts = findElementContents(liveHtml, ['script'], inlineScriptNeedsHash);
+  const scripts = elements
+    .filter((element) => element.name === 'script' && inlineScriptNeedsHash(element.attrs))
+    .map((element) => element.text);
   for (const [index, content] of scripts.entries()) {
     if (!scriptTokens.has(sha256Token(content)))
       problems.push(`${where}: inline script ${index} has no matching hash in script-src.`);
   }
-  for (const [index, content] of findElementContents(liveHtml, ['style']).entries()) {
+  const styles = elements
+    .filter((element) => element.name === 'style')
+    .map((element) => element.text);
+  for (const [index, content] of styles.entries()) {
     if (!styleTokens.has(sha256Token(content)))
       problems.push(`${where}: inline style ${index} has no matching hash in style-src.`);
   }
@@ -353,10 +354,11 @@ export function checkContentSecurityPolicy(input: {
   const pagesDirectives: CspDirective[][] = [];
 
   for (const [pageIndex, html] of input.pageHtmls.entries()) {
-    const { inHead: contents, ignored } = findCspMetaContents(stripInertMarkup(html));
-    if (ignored > 0)
+    const elements = readLiveElements(html);
+    const { inHead: contents, outsideHead } = findCspMetaContents(elements);
+    if (outsideHead > 0)
       problems.push(
-        `page ${pageIndex}: ${ignored} Content-Security-Policy <meta> after <body>, which browsers ignore.`,
+        `page ${pageIndex}: ${outsideHead} Content-Security-Policy <meta> outside <head>, which browsers ignore.`,
       );
     // Browsers enforce EVERY delivered policy, so a second one could block
     // the site while the first still looks compliant.
@@ -372,9 +374,7 @@ export function checkContentSecurityPolicy(input: {
     const directives = parseCspContent(content);
     pagesDirectives.push(directives);
     problems.push(...checkPolicyFloor(directives, `page ${pageIndex} policy`));
-    problems.push(
-      ...checkInlineContentHashes(stripInertMarkup(html), directives, `page ${pageIndex} policy`),
-    );
+    problems.push(...checkInlineContentHashes(elements, directives, `page ${pageIndex} policy`));
     problems.push(...compareToSource(directives, `page ${pageIndex} policy`));
   }
 

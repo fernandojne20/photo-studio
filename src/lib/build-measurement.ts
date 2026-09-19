@@ -1,5 +1,5 @@
 /**
- * Pure string helpers for the performance-budget measurement (PD-06):
+ * Pure string helpers for the performance-budget measurement (PD-06/VH-02):
  * finding the homepage's module script entries, static/dynamic import
  * specifiers inside a built JS chunk, stylesheet and preloaded-font
  * `<link>` hrefs, and the font URLs inside built `@font-face` blocks.
@@ -8,18 +8,14 @@
  */
 
 import { posix } from 'node:path';
-import {
-  findElementContents,
-  findTags,
-  hasRelToken,
-  parseAttributes,
-  stripInertMarkup,
-} from './built-html';
+import { hasRelToken, readLiveElements } from './built-dom';
 
-/** `<script type="module" src="...">` entries: order-of-attributes-proof via `parseAttributes`. */
+/** `<script type="module" src="...">` entries, in document order. */
 export function extractModuleScriptEntries(html: string): string[] {
   const entries: string[] = [];
-  for (const attrs of findTags(stripInertMarkup(html), ['script']).map(parseAttributes)) {
+  for (const element of readLiveElements(html)) {
+    if (element.name !== 'script') continue;
+    const { attrs } = element;
     if (attrs.type?.toLowerCase() === 'module' && attrs.src !== undefined) entries.push(attrs.src);
   }
   return entries;
@@ -43,10 +39,12 @@ export function resolveSpecifier(importerAbsPath: string, spec: string): string 
   return posix.normalize(posix.join(posix.dirname(importerAbsPath), spec));
 }
 
-/** `<link rel="stylesheet" href="...">` hrefs, whatever order the attributes are written in. */
+/** `<link rel="stylesheet" href="...">` hrefs. */
 export function extractStylesheetHrefs(html: string): string[] {
   const hrefs: string[] = [];
-  for (const attrs of findTags(stripInertMarkup(html), ['link']).map(parseAttributes)) {
+  for (const element of readLiveElements(html)) {
+    if (element.name !== 'link') continue;
+    const { attrs } = element;
     // `rel` is a token list: `rel="preload stylesheet"` is a stylesheet too.
     if (hasRelToken(attrs, 'stylesheet') && attrs.href !== undefined) hrefs.push(attrs.href);
   }
@@ -56,7 +54,9 @@ export function extractStylesheetHrefs(html: string): string[] {
 /** `<link rel="preload" as="font" href="...">` hrefs — both `rel` and `as` required, in any order. */
 export function extractPreloadedFontHrefs(html: string): string[] {
   const hrefs: string[] = [];
-  for (const attrs of findTags(stripInertMarkup(html), ['link']).map(parseAttributes)) {
+  for (const element of readLiveElements(html)) {
+    if (element.name !== 'link') continue;
+    const { attrs } = element;
     if (
       hasRelToken(attrs, 'preload') &&
       attrs.as?.toLowerCase() === 'font' &&
@@ -76,8 +76,9 @@ function extractFontFaceUrls(fontFaceBody: string): string[] {
 /** Every font URL referenced by any `@font-face` rule in any inline `<style>` block of the page. */
 export function extractAllFontFaceUrls(html: string): string[] {
   const urls = new Set<string>();
-  for (const styleContent of findElementContents(stripInertMarkup(html), ['style'])) {
-    for (const block of styleContent.matchAll(/@font-face\{([^}]*)\}/g)) {
+  for (const element of readLiveElements(html)) {
+    if (element.name !== 'style') continue;
+    for (const block of element.text.matchAll(/@font-face\{([^}]*)\}/g)) {
       for (const url of extractFontFaceUrls(block[1])) urls.add(url);
     }
   }
@@ -86,5 +87,5 @@ export function extractAllFontFaceUrls(html: string): string[] {
 
 /** Number of live `<img>` tags: what the HTML budget scales with. */
 export function countImages(html: string): number {
-  return findTags(stripInertMarkup(html), ['img']).length;
+  return readLiveElements(html).filter((element) => element.name === 'img').length;
 }

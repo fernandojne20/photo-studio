@@ -508,6 +508,78 @@ describe('a forbidden tag is forbidden even when it is empty', () => {
   });
 });
 
+describe("a tag written outside <head> does not count as the page's own", () => {
+  const ORIGIN = 'https://www.example.com';
+
+  it('reports a robots meta written in the body, for the homepage', () => {
+    const result = checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml:
+        '<!doctype html><html><head></head><body>' +
+        '<meta name="robots" content="noindex, nofollow"></body></html>',
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: ROBOTS_TXT,
+      sitemapXml: undefined,
+      headersText: HEADERS_NON_INDEXABLE,
+    });
+    expect(result.problems).toContain(
+      'Homepage has a <meta name="robots"> outside <head>, which must not be there.',
+    );
+    expect(result.problems).toContain('Homepage has no live <meta name="robots"> tag.');
+    expect(result.indexable).toBe(false);
+  });
+
+  it('reports a robots meta written in the body, for the 404 page', () => {
+    const result = checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml: homepage(),
+      notFoundHtml:
+        '<!doctype html><html><head></head><body>' +
+        '<meta name="robots" content="noindex, nofollow"></body></html>',
+      robotsTxt: ROBOTS_TXT,
+      sitemapXml: undefined,
+      headersText: HEADERS_NON_INDEXABLE,
+    });
+    expect(result.problems).toContain(
+      '404 page has a <meta name="robots"> outside <head>, which must not be there.',
+    );
+    expect(result.problems).toContain('404 page robots meta must be noindex, found "none".');
+  });
+
+  it('does not count a required canonical that only appears in the body, in indexable mode', () => {
+    const result = checkIndexingPolicy({
+      mode: 'indexable',
+      origin: ORIGIN,
+      homepageHtml:
+        `<!doctype html><html><head>` +
+        `<meta name="robots" content="index, follow">` +
+        `<meta property="og:url" content="${ORIGIN}/">${JSON_LD_NO_INSTAGRAM}</head>` +
+        `<body><link rel="canonical" href="${ORIGIN}/"></body></html>`,
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: `${ROBOTS_TXT}Sitemap: ${ORIGIN}/sitemap.xml\n`,
+      sitemapXml: `<urlset><url><loc>${ORIGIN}/</loc></url></urlset>`,
+      headersText: HEADERS_INDEXABLE,
+    });
+    expect(result.problems).toContain(`Homepage canonical must be "${ORIGIN}/", found "none".`);
+  });
+
+  it('still fails a forbidden canonical that only appears in the body, in non-indexable mode', () => {
+    const result = checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml:
+        '<!doctype html><html><head><meta name="robots" content="noindex, nofollow"></head>' +
+        '<body><link rel="canonical" href="https://x.test/"></body></html>',
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: ROBOTS_TXT,
+      sitemapXml: undefined,
+      headersText: HEADERS_NON_INDEXABLE,
+    });
+    expect(result.problems).toContain(
+      'Homepage must have no canonical link, found "https://x.test/".',
+    );
+  });
+});
+
 describe('directives are read as crawlers read them', () => {
   const ORIGIN = 'https://www.example.com';
   const indexableHomepage = () =>
