@@ -1,0 +1,333 @@
+import { describe, expect, it } from 'vitest';
+import { checkEnvironmentConsistency, checkIndexingPolicy } from './build-verification-indexing';
+
+const JSON_LD_NO_INSTAGRAM =
+  '<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"x","telephone":"+1","email":"a@b.co"}</script>';
+
+function homepage({
+  robots = '<meta name="robots" content="noindex, nofollow">',
+  canonical = '',
+  ogUrl = '',
+  jsonLd = JSON_LD_NO_INSTAGRAM,
+}: { robots?: string; canonical?: string; ogUrl?: string; jsonLd?: string } = {}): string {
+  return `<!doctype html><html><head>${robots}${canonical}${ogUrl}${jsonLd}</head><body></body></html>`;
+}
+
+const NOT_FOUND_OK =
+  '<!doctype html><html><head><meta name="robots" content="noindex, nofollow"></head></html>';
+const ROBOTS_TXT = 'User-agent: *\nAllow: /\nDisallow: /api/\n';
+
+const HEADERS_NON_INDEXABLE = [
+  '/_astro/*',
+  '  Cache-Control: public, max-age=31536000, immutable',
+  '',
+  '/*',
+  '  X-Content-Type-Options: nosniff',
+  "  Content-Security-Policy: default-src 'none'; frame-ancestors 'none'",
+  '  X-Robots-Tag: noindex, nofollow',
+  '',
+].join('\n');
+
+const HEADERS_INDEXABLE = HEADERS_NON_INDEXABLE.split('\n')
+  .filter((line) => !line.includes('X-Robots-Tag'))
+  .join('\n');
+
+describe('checkIndexingPolicy — non-indexable', () => {
+  it('passes a correctly non-indexable build', () => {
+    const result = checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml: homepage(),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: ROBOTS_TXT,
+      sitemapXml: undefined,
+      headersText: HEADERS_NON_INDEXABLE,
+    });
+    expect(result).toEqual({ problems: [], indexable: false });
+  });
+
+  it('ignores a robots meta commented out before the real one', () => {
+    const result = checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml: homepage({
+        robots:
+          '<!-- <meta name="robots" content="index, follow"> --><meta name="robots" content="noindex, nofollow">',
+      }),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: ROBOTS_TXT,
+      sitemapXml: undefined,
+      headersText: HEADERS_NON_INDEXABLE,
+    });
+    expect(result).toEqual({ problems: [], indexable: false });
+  });
+
+  it('fails when the only robots meta is trapped inside <noscript>', () => {
+    const result = checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml: homepage({
+        robots: '<noscript><meta name="robots" content="noindex, nofollow"></noscript>',
+      }),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: ROBOTS_TXT,
+      sitemapXml: undefined,
+      headersText: HEADERS_NON_INDEXABLE,
+    });
+    expect(result.problems).toContain('Homepage has no live <meta name="robots"> tag.');
+  });
+
+  it('fails on two robots meta tags', () => {
+    const result = checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml: homepage({
+        robots:
+          '<meta name="robots" content="noindex, nofollow"><meta name="robots" content="index, follow">',
+      }),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: ROBOTS_TXT,
+      sitemapXml: undefined,
+      headersText: HEADERS_NON_INDEXABLE,
+    });
+    expect(result.problems).toContain(
+      'Homepage has 2 robots meta tags; there must be at most one.',
+    );
+  });
+
+  it('flags a canonical link that should not be there', () => {
+    const result = checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml: homepage({ canonical: '<link rel="canonical" href="https://x.test/">' }),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: ROBOTS_TXT,
+      sitemapXml: undefined,
+      headersText: HEADERS_NON_INDEXABLE,
+    });
+    expect(result.problems).toContain(
+      'Homepage must have no canonical link, found "https://x.test/".',
+    );
+  });
+
+  it('flags a sitemap.xml that should not exist', () => {
+    const result = checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml: homepage(),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: ROBOTS_TXT,
+      sitemapXml: '<urlset></urlset>',
+      headersText: HEADERS_NON_INDEXABLE,
+    });
+    expect(result.problems).toContain('sitemap.xml must not exist.');
+  });
+
+  it('flags a missing X-Robots-Tag under the /* rule', () => {
+    const result = checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml: homepage(),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: ROBOTS_TXT,
+      sitemapXml: undefined,
+      headersText: HEADERS_NON_INDEXABLE.replace('  X-Robots-Tag: noindex, nofollow\n', ''),
+    });
+    expect(result.problems.some((p) => p.includes('/* rule must set X-Robots-Tag'))).toBe(true);
+  });
+
+  it('ignores an X-Robots-Tag placed only under /_astro/*, not /*', () => {
+    const headers = [
+      '/_astro/*',
+      '  Cache-Control: public, max-age=31536000, immutable',
+      '  X-Robots-Tag: noindex, nofollow',
+      '',
+      '/*',
+      "  Content-Security-Policy: default-src 'none'",
+      '',
+    ].join('\n');
+    const result = checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml: homepage(),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: ROBOTS_TXT,
+      sitemapXml: undefined,
+      headersText: headers,
+    });
+    expect(result.problems.some((p) => p.includes('/* rule must set X-Robots-Tag'))).toBe(true);
+  });
+});
+
+describe('checkIndexingPolicy — indexable', () => {
+  const ORIGIN = 'https://www.example.com';
+
+  function indexableHomepage(extra: { jsonLd?: string } = {}) {
+    return homepage({
+      robots: '<meta name="robots" content="index, follow">',
+      canonical: `<link rel="canonical" href="${ORIGIN}/">`,
+      ogUrl: `<meta property="og:url" content="${ORIGIN}/">`,
+      ...extra,
+    });
+  }
+
+  it('passes a correctly indexable build', () => {
+    const result = checkIndexingPolicy({
+      mode: 'indexable',
+      origin: ORIGIN,
+      homepageHtml: indexableHomepage(),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: `${ROBOTS_TXT}Sitemap: ${ORIGIN}/sitemap.xml\n`,
+      sitemapXml: `<urlset><url><loc>${ORIGIN}/</loc></url></urlset>`,
+      headersText: HEADERS_INDEXABLE,
+    });
+    expect(result).toEqual({ problems: [], indexable: true });
+  });
+
+  it('flags a missing sitemap.xml (the sitemap.xml.ts ignoring the URL mutation)', () => {
+    const result = checkIndexingPolicy({
+      mode: 'indexable',
+      origin: ORIGIN,
+      homepageHtml: indexableHomepage(),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: `${ROBOTS_TXT}Sitemap: ${ORIGIN}/sitemap.xml\n`,
+      sitemapXml: undefined,
+      headersText: HEADERS_INDEXABLE,
+    });
+    expect(result.problems).toContain('sitemap.xml must exist.');
+  });
+
+  it('fails on Disallow: / even when indexable', () => {
+    const result = checkIndexingPolicy({
+      mode: 'indexable',
+      origin: ORIGIN,
+      homepageHtml: indexableHomepage(),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: `User-agent: *\nDisallow: /\nSitemap: ${ORIGIN}/sitemap.xml\n`,
+      sitemapXml: `<urlset><url><loc>${ORIGIN}/</loc></url></urlset>`,
+      headersText: HEADERS_INDEXABLE,
+    });
+    expect(result.problems).toContain('robots.txt must not disallow "/" in either mode.');
+  });
+
+  it('requires Allow: / and Disallow: /api/ in indexable mode too', () => {
+    const result = checkIndexingPolicy({
+      mode: 'indexable',
+      origin: ORIGIN,
+      homepageHtml: indexableHomepage(),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: `User-agent: *\nSitemap: ${ORIGIN}/sitemap.xml\n`,
+      sitemapXml: `<urlset><url><loc>${ORIGIN}/</loc></url></urlset>`,
+      headersText: HEADERS_INDEXABLE,
+    });
+    expect(result.problems).toContain('robots.txt must allow "/".');
+    expect(result.problems).toContain('robots.txt must disallow "/api/".');
+  });
+
+  it('flags a lingering X-Robots-Tag header', () => {
+    const result = checkIndexingPolicy({
+      mode: 'indexable',
+      origin: ORIGIN,
+      homepageHtml: indexableHomepage(),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: `${ROBOTS_TXT}Sitemap: ${ORIGIN}/sitemap.xml\n`,
+      sitemapXml: `<urlset><url><loc>${ORIGIN}/</loc></url></urlset>`,
+      headersText: HEADERS_NON_INDEXABLE,
+    });
+    expect(result.problems.some((p) => p.includes('/* rule must not set X-Robots-Tag'))).toBe(true);
+  });
+});
+
+describe('checkIndexingPolicy — both modes', () => {
+  it('flags an indexable 404 page', () => {
+    const result = checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml: homepage(),
+      notFoundHtml:
+        '<!doctype html><html><head><meta name="robots" content="index, follow"></head></html>',
+      robotsTxt: ROBOTS_TXT,
+      sitemapXml: undefined,
+      headersText: HEADERS_NON_INDEXABLE,
+    });
+    expect(result.problems.some((p) => p.startsWith('404 page robots meta'))).toBe(true);
+  });
+
+  it('flags a JSON-LD block that is not Organization', () => {
+    const result = checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml: homepage({
+        jsonLd: '<script type="application/ld+json">{"@type":"LocalBusiness"}</script>',
+      }),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: ROBOTS_TXT,
+      sitemapXml: undefined,
+      headersText: HEADERS_NON_INDEXABLE,
+    });
+    expect(result.problems.some((p) => p.startsWith('JSON-LD @type must be "Organization"'))).toBe(
+      true,
+    );
+  });
+
+  it('flags a sameAs entry while the Instagram URL is still the bare placeholder', () => {
+    const result = checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml: homepage({
+        jsonLd:
+          '<script type="application/ld+json">{"@type":"Organization","sameAs":["https://www.instagram.com/"]}</script>',
+      }),
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: ROBOTS_TXT,
+      sitemapXml: undefined,
+      headersText: HEADERS_NON_INDEXABLE,
+    });
+    expect(result.problems).toContain(
+      'JSON-LD must have no sameAs while the Instagram URL is the bare placeholder.',
+    );
+  });
+
+  it('never throws on a homepage with no robots meta at all', () => {
+    const result = checkIndexingPolicy({
+      mode: 'non-indexable',
+      homepageHtml: '<!doctype html><html><head></head></html>',
+      notFoundHtml: NOT_FOUND_OK,
+      robotsTxt: '',
+      sitemapXml: undefined,
+      headersText: '',
+    });
+    expect(result.indexable).toBe(false);
+    expect(result.problems.length).toBeGreaterThan(0);
+  });
+});
+
+describe('checkEnvironmentConsistency', () => {
+  it('is silent when PUBLIC_SITE_URL is unset', () => {
+    expect(
+      checkEnvironmentConsistency({
+        mode: 'non-indexable',
+        publicSiteUrlRaw: undefined,
+        indexable: false,
+      }),
+    ).toEqual([]);
+  });
+
+  it('names the variable when it is set while verifying non-indexable', () => {
+    const problems = checkEnvironmentConsistency({
+      mode: 'non-indexable',
+      publicSiteUrlRaw: 'https://example.com/blog',
+      indexable: false,
+    });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('PUBLIC_SITE_URL');
+  });
+
+  it('names the variable when it is set but the output is not indexable', () => {
+    const problems = checkEnvironmentConsistency({
+      mode: 'indexable',
+      publicSiteUrlRaw: 'https://example.com/blog',
+      indexable: false,
+    });
+    expect(problems[0]).toContain('PUBLIC_SITE_URL');
+  });
+
+  it('is silent when the variable is set and the output really is indexable', () => {
+    expect(
+      checkEnvironmentConsistency({
+        mode: 'indexable',
+        publicSiteUrlRaw: 'https://x.test',
+        indexable: true,
+      }),
+    ).toEqual([]);
+  });
+});
