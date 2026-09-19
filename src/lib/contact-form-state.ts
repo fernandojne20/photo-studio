@@ -18,6 +18,9 @@ import type { ContactErrorCode, ContactFieldName } from '../contact/types';
  *   `fetch` call.
  * - `mapFormErrorMessage`: the Spanish message for a given form-level
  *   result code.
+ * - `fieldsForLocalValidation`: the values to run through
+ *   `validateContactSubmission` for local checks, with the honeypot forced
+ *   empty so it never affects the local (visible-field) result.
  */
 
 export interface ContactFormFieldValues {
@@ -58,6 +61,22 @@ const CONTACT_ERROR_CODES: ReadonlySet<string> = new Set<ContactErrorCode>([
   'too_long',
   'phone_invalid',
 ]);
+
+/**
+ * Values to run through the domain's own `validateContactSubmission` for
+ * LOCAL (client-side) checks only: the honeypot is forced to empty so a
+ * filled bait can never short-circuit local validation into `spam` before
+ * the visible fields are even checked. The visible-field validation result
+ * — valid/invalid, and which field gets which error — is therefore
+ * identical whether or not the bait was filled; only the server (which
+ * validates the RAW values, bait included) still checks it, by design.
+ *
+ * Returns a new object; `values` itself is never mutated, so the real bait
+ * value is still there afterward for `buildContactPayload` to send.
+ */
+export function fieldsForLocalValidation(values: ContactFormFieldValues): ContactFormFieldValues {
+  return { ...values, website: '' };
+}
 
 /** Builds the JSON payload `POST /api/contact` expects (see `src/contact/http.ts`). */
 export function buildContactPayload(
