@@ -62,6 +62,21 @@ function findTagEnd(html: string, from: number): number {
 }
 
 /**
+ * Start of `</name` followed by whitespace, `/` or `>`, or -1. A longer
+ * name such as `</scripture>` inside a script does not end the element.
+ */
+function findClosingTag(lower: string, name: string, from: number): number {
+  const needle = `</${name}`;
+  let index = lower.indexOf(needle, from);
+  while (index !== -1) {
+    const next = lower[index + needle.length];
+    if (next === undefined || next === '>' || next === '/' || /\s/.test(next)) return index;
+    index = lower.indexOf(needle, index + 1);
+  }
+  return -1;
+}
+
+/**
  * One linear pass. A tag that never closes ends the scan, as it does in a
  * browser, where the rest of the document is swallowed by that tag; trying
  * every later `<` instead made corrupted input take quadratic time.
@@ -94,7 +109,7 @@ function tokenize(html: string): Token[] {
       cursor = tagEnd + 1;
       continue;
     }
-    const closeStart = lower.indexOf(`</${name}`, tagEnd + 1);
+    const closeStart = findClosingTag(lower, name, tagEnd + 1);
     const closeEnd = closeStart === -1 ? -1 : html.indexOf('>', closeStart);
     const contentEnd = closeStart === -1 ? html.length : closeStart;
     const end = closeEnd === -1 ? html.length : closeEnd + 1;
@@ -137,20 +152,34 @@ export function findTags(html: string, names?: readonly string[]): string[] {
     .map((token) => token.tag);
 }
 
+/** Named references an attribute value can plausibly use; numeric ones are decoded generally. */
 const NAMED_ENTITIES: Readonly<Record<string, string>> = {
   quot: '"',
   amp: '&',
   lt: '<',
   gt: '>',
-  '#39': "'",
   apos: "'",
+  colon: ':',
+  sol: '/',
+  period: '.',
+  commat: '@',
+  num: '#',
+  quest: '?',
+  equals: '=',
+  nbsp: String.fromCodePoint(0xa0),
+  Tab: String.fromCodePoint(0x9),
+  NewLine: String.fromCodePoint(0xa),
 };
 
+/** Decodes `&#116;`, `&#x74;` and the named references above, as a browser does before using a value. */
 function decodeEntities(value: string): string {
-  return value.replace(
-    /&(quot|amp|lt|gt|#39|apos);/g,
-    (_match, name: string) => NAMED_ENTITIES[name],
-  );
+  return value.replace(/&(#[xX][0-9a-fA-F]+|#[0-9]+|[a-zA-Z]+);/g, (match, body: string) => {
+    if (body[0] !== '#') return NAMED_ENTITIES[body] ?? match;
+    const hex = body[1] === 'x' || body[1] === 'X';
+    const codePoint = Number.parseInt(body.slice(hex ? 2 : 1), hex ? 16 : 10);
+    const valid = Number.isInteger(codePoint) && codePoint > 0 && codePoint <= 0x10ffff;
+    return valid ? String.fromCodePoint(codePoint) : match;
+  });
 }
 
 /** name="value" | name='value' | name=value | name (boolean), any order, name lowercased, value entity-decoded. */
