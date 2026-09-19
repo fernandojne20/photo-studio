@@ -173,16 +173,20 @@ const NAMED_ENTITIES: Readonly<Record<string, string>> = {
 
 /** Decodes `&#116;`, `&#x74;` and the named references above, as a browser does before using a value. */
 function decodeEntities(value: string): string {
-  return value.replace(/&(#[xX][0-9a-fA-F]+|#[0-9]+|[a-zA-Z]+);/g, (match, body: string) => {
-    if (body[0] !== '#') return NAMED_ENTITIES[body] ?? match;
-    const hex = body[1] === 'x' || body[1] === 'X';
-    const codePoint = Number.parseInt(body.slice(hex ? 2 : 1), hex ? 16 : 10);
-    const valid = Number.isInteger(codePoint) && codePoint > 0 && codePoint <= 0x10ffff;
-    return valid ? String.fromCodePoint(codePoint) : match;
-  });
+  return value.replace(
+    /&(?:(#[xX][0-9a-fA-F]+|#[0-9]+);?|([a-zA-Z]+);)/g,
+    (match, numeric: string | undefined, named: string | undefined) => {
+      const body = numeric ?? named ?? '';
+      if (body[0] !== '#') return NAMED_ENTITIES[body] ?? match;
+      const hex = body[1] === 'x' || body[1] === 'X';
+      const codePoint = Number.parseInt(body.slice(hex ? 2 : 1), hex ? 16 : 10);
+      const valid = Number.isInteger(codePoint) && codePoint > 0 && codePoint <= 0x10ffff;
+      return valid ? String.fromCodePoint(codePoint) : match;
+    },
+  );
 }
 
-/** name="value" | name='value' | name=value | name (boolean), any order, name lowercased, value entity-decoded. */
+/** name="value" | name='value' | name=value | name (boolean), any order, name lowercased, value entity-decoded. The FIRST of two attributes with one name wins, as in the HTML parser. */
 export function parseAttributes(tag: string): Record<string, string> {
   const body = tag.replace(/^<[a-zA-Z][a-zA-Z0-9-]*/, '').replace(/\/?>$/, '');
   const attrs: Record<string, string> = {};
@@ -190,7 +194,8 @@ export function parseAttributes(tag: string): Record<string, string> {
   for (const match of body.matchAll(pattern)) {
     const [, name, dq, sq, bare] = match;
     const raw = dq ?? sq ?? bare ?? '';
-    attrs[name.toLowerCase()] = decodeEntities(raw);
+    const key = name.toLowerCase();
+    if (!(key in attrs)) attrs[key] = decodeEntities(raw);
   }
   return attrs;
 }
@@ -209,6 +214,11 @@ export function findElementContents(
     .filter((token) => token.kind === 'element' && wanted.has(token.name))
     .filter((token) => !predicate || predicate(parseAttributes(token.tag)))
     .map((token) => token.content);
+}
+
+/** `rel` is a space-separated token list: `rel="alternate stylesheet"` is a stylesheet. */
+export function hasRelToken(attrs: Record<string, string>, token: string): boolean {
+  return (attrs.rel ?? '').toLowerCase().split(/\s+/).includes(token);
 }
 
 export interface HeadersRule {
