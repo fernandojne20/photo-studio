@@ -23,7 +23,8 @@ Out of scope, by the user's decision: body text size and color, heading colors. 
 
 ## Constraints and decisions
 
-- Desktop portrait is a full-section cover image with a hotspot-aware Sanity crop at the section's frame ratio, the same technique `Hero.astro` uses (`buildSanitySrcSet` with a ratio, `<picture>` with a mobile `<source>`). A left dark gradient guarantees legibility for any photo the editor uploads.
+- Desktop portrait is a full-section cover image positioned by the editor's hotspot; mobile uses a hotspot-aware 3:2 CDN crop (`<picture>` with a mobile `<source>`).
+- The dark left side comes from the photo itself, not from an overlay (user decision, 2026-09-24). The Studio field `Retrato` states the requirement: a landscape photo, dark on the left, the person on the right, the hotspot on what must always show.
 - The text column keeps the shared container's left edge.
 - Mobile keeps the stacked order already built (monogram, tagline, portrait, name, body, CTA).
 - Accessibility floor unchanged: visible focus ring on the CTA, alt text from Sanity, text contrast unchanged.
@@ -61,6 +62,8 @@ Out of scope, by the user's decision: body text size and color, heading colors. 
 
 - 2026-09-24, review bot round 2 (one P2 finding, accepted): aligning only the hotspot's center kept the center visible, but part of the hotspot rectangle could still be cropped. Fix: for each axis, with the rectangle [start, end] inside the crop, P = start / (start + (1 − end)). With position P and a frame showing a fraction f of the image, the visible window starts at P·(1 − f). At the tightest frame that can hold the rectangle (f = end − start), that window lands exactly on it, and a larger f only adds margin, so the whole rectangle stays visible at every frame ratio that can hold it. A point hotspot reduces to its center; a region spanning the whole axis uses its center. A property test checks the guarantee for five regions over f in steps of 0.01; four mutations (center only, ignoring the height, the wrong whole-axis fallback, ignoring the crop) were all caught.
 
+- 2026-09-24, user direction: the page must not draw a fade over the photo. The photo has to bring the dark left side and show the person on the right. The `::before` gradient and `--biography-text-end` are removed. The `Retrato` field in `studio/schemaTypes/documents/home-page.ts` now has a description stating the requirement. Consequence, verified live: the current placeholder (a bright fog photo) makes the text unreadable, because it does not meet the requirement; the real portrait or a conforming placeholder is needed. The user mentioned a subtle blur as a possibility, not decided. `pnpm check`: RC=0, 793 tests. After merge, the Studio schema needs a `sanity schema deploy` / `sanity deploy` for the description to show (authorized for the user's CLI session).
+
 ## Next step
 
-The review bot's verdict on round 2; then the user merges.
+The review bot's verdict; the user decides on the placeholder photo and on the blur; then the user merges.
