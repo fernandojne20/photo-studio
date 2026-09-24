@@ -1,73 +1,61 @@
 /**
- * Pure assertions on BUILT output for the indexing policy (PD-03/PD-06),
- * complementing — not duplicating — the `astro:build:done` hooks in
- * `astro.config.mjs`. Every extraction goes through `built-html.ts`, on
- * LIVE markup only (`stripInertMarkup`): a robots meta commented out or
- * trapped inside `<noscript>` must not count, and more than one robots meta
- * or canonical must fail loudly (a search engine combines them). These
- * functions never throw: `scripts/verify-build.ts` wraps every call anyway,
- * but nothing here depends on that.
+ * Pure assertions on BUILT output for the indexing policy (PD-03/PD-06/
+ * VH-02), complementing — not duplicating — the `astro:build:done` hooks in
+ * `astro.config.mjs`. Every extraction goes through `readLiveElements`,
+ * which already excludes a commented-out or `<noscript>`-trapped tag: more
+ * than one robots meta or canonical must fail loudly (a search engine
+ * combines them). These functions never throw: `scripts/verify-build.ts`
+ * wraps every call anyway, but nothing here depends on that.
  */
 
 import { parseEnv } from 'node:util';
-import {
-  findElementContents,
-  findTags,
-  getHeader,
-  hasRelToken,
-  parseAttributes,
-  parseHeadersFile,
-  stripInertMarkup,
-} from './built-html';
+import { hasRelToken, readLiveElements } from './built-dom';
+import type { LiveElement } from './built-dom';
+import { getHeader, parseHeadersFile } from './built-html';
 import { hasRealInstagramHandle } from './seo';
 import { site } from '../config/site';
 
 export type Mode = 'indexable' | 'non-indexable';
 
-function findRobotsMetaContents(liveHtml: string): string[] {
-  return findTags(liveHtml, ['meta'])
-    .map(parseAttributes)
-    .filter((attrs) => attrs.name?.toLowerCase() === 'robots')
-    .map((attrs) => attrs.content ?? '');
+function findRobotsMetas(elements: readonly LiveElement[]): LiveElement[] {
+  return elements.filter(
+    (element) => element.name === 'meta' && element.attrs.name?.toLowerCase() === 'robots',
+  );
 }
 
 /** `googlebot`, `bingbot` and the like: a crawler obeys its own robots meta on top of the generic one. */
 const CRAWLER_META_NAME = /^(?:googlebot(?:-[a-z]+)?|[a-z0-9-]*bot|slurp|yandex|baiduspider)$/;
 
-function findBlockingCrawlerMetaNames(liveHtml: string): string[] {
-  return findTags(liveHtml, ['meta'])
-    .map(parseAttributes)
+function findBlockingCrawlerMetaNames(elements: readonly LiveElement[]): string[] {
+  return elements
     .filter(
-      (attrs) =>
-        CRAWLER_META_NAME.test(attrs.name?.toLowerCase() ?? '') &&
-        blocksIndexing(attrs.content ?? ''),
+      (element) =>
+        element.name === 'meta' &&
+        CRAWLER_META_NAME.test(element.attrs.name?.toLowerCase() ?? '') &&
+        blocksIndexing(element.attrs.content ?? ''),
     )
-    .map((attrs) => attrs.name ?? '');
+    .map((element) => element.attrs.name ?? '');
 }
 
-function findCanonicalHrefs(liveHtml: string): string[] {
-  return findTags(liveHtml, ['link'])
-    .map(parseAttributes)
-    .filter((attrs) => hasRelToken(attrs, 'canonical'))
-    .map((attrs) => attrs.href ?? '');
-}
-
-function findOgUrls(liveHtml: string): string[] {
-  return findTags(liveHtml, ['meta'])
-    .map(parseAttributes)
-    .filter((attrs) => attrs.property?.toLowerCase() === 'og:url')
-    .map((attrs) => attrs.content ?? '');
-}
-
-function extractJsonLd(liveHtml: string): Record<string, unknown> | undefined {
-  const [raw] = findElementContents(
-    liveHtml,
-    ['script'],
-    (attrs) => attrs.type === 'application/ld+json',
+function findCanonicalElements(elements: readonly LiveElement[]): LiveElement[] {
+  return elements.filter(
+    (element) => element.name === 'link' && hasRelToken(element.attrs, 'canonical'),
   );
-  if (!raw) return undefined;
+}
+
+function findOgUrlElements(elements: readonly LiveElement[]): LiveElement[] {
+  return elements.filter(
+    (element) => element.name === 'meta' && element.attrs.property?.toLowerCase() === 'og:url',
+  );
+}
+
+function extractJsonLd(elements: readonly LiveElement[]): Record<string, unknown> | undefined {
+  const script = elements.find(
+    (element) => element.name === 'script' && element.attrs.type === 'application/ld+json',
+  );
+  if (!script) return undefined;
   try {
-    const parsed: unknown = JSON.parse(raw.replace(/\\u003c/g, '<'));
+    const parsed: unknown = JSON.parse(script.text.replace(/\\u003c/g, '<'));
     return typeof parsed === 'object' && parsed !== null
       ? (parsed as Record<string, unknown>)
       : undefined;
@@ -220,19 +208,53 @@ function checkRobotsRules(robotsTxt: string): string[] {
   return problems;
 }
 
+/** Robots metas outside `<head>` never count as the page's own: split, and flag them. */
+function resolveRobotsMeta(
+  elements: readonly LiveElement[],
+  pageLabel: string,
+  duplicateLabel: string,
+  problems: string[],
+): string | undefined {
+  const metas = findRobotsMetas(elements);
+  if (metas.some((meta) => !meta.inHead))
+    problems.push(
+      `${pageLabel} has a <meta name="robots"> outside <head>, which must not be there.`,
+    );
+  return resolveSingle(
+    metas.filter((meta) => meta.inHead).map((meta) => meta.attrs.content ?? ''),
+    duplicateLabel,
+    problems,
+  );
+}
+
 /** Asserts the built output for the resolved indexing policy, in both modes. */
 export function checkIndexingPolicy(input: IndexingCheckInput): IndexingCheckResult {
   const problems: string[] = [];
-  const liveHomepage = stripInertMarkup(input.homepageHtml);
-  const robotsValues = findRobotsMetaContents(liveHomepage);
-  const robotsContent = resolveSingle(robotsValues, 'robots meta', problems);
+  const homepageElements = readLiveElements(input.homepageHtml);
+  const robotsContent = resolveRobotsMeta(homepageElements, 'Homepage', 'robots meta', problems);
   if (robotsContent === undefined) {
-    if (robotsValues.length === 0) problems.push('Homepage has no live <meta name="robots"> tag.');
+    if (findRobotsMetas(homepageElements).filter((meta) => meta.inHead).length === 0)
+      problems.push('Homepage has no live <meta name="robots"> tag.');
     return { problems, indexable: false };
   }
   const indexable = !blocksIndexing(robotsContent);
-  const canonical = resolveSingle(findCanonicalHrefs(liveHomepage), 'canonical', problems);
-  const ogUrl = resolveSingle(findOgUrls(liveHomepage), 'og:url meta', problems);
+  // Required in the indexable mode, so only one in <head> counts there;
+  // forbidden otherwise, so one anywhere in the document fails.
+  const counts = (element: LiveElement) => input.mode === 'non-indexable' || element.inHead;
+  const canonical = resolveSingle(
+    findCanonicalElements(homepageElements)
+      .filter(counts)
+      .map((element) => element.attrs.href ?? ''),
+    'canonical',
+    problems,
+  );
+  const ogUrl = resolveSingle(
+    findOgUrlElements(homepageElements)
+      .filter(counts)
+      .map((element) => element.attrs.content ?? ''),
+    'og:url meta',
+    problems,
+  );
 
   const headersRules = parseHeadersFile(input.headersText);
   const staticRule = headersRules.find((rule) => rule.path === '/*');
@@ -281,7 +303,7 @@ export function checkIndexingPolicy(input: IndexingCheckInput): IndexingCheckRes
           `sitemap.xml must list exactly the homepage "${expected}", found ${JSON.stringify(locs)}.`,
         );
     }
-    for (const name of findBlockingCrawlerMetaNames(liveHomepage))
+    for (const name of findBlockingCrawlerMetaNames(homepageElements))
       problems.push(`Homepage must not carry a <meta name="${name}"> that blocks indexing.`);
     // Cloudflare combines every rule that matches a path, so no rule may set it.
     for (const rule of headersRules) {
@@ -291,20 +313,22 @@ export function checkIndexingPolicy(input: IndexingCheckInput): IndexingCheckRes
     }
   }
 
-  const liveNotFound = stripInertMarkup(input.notFoundHtml);
-  const notFoundRobots = resolveSingle(
-    findRobotsMetaContents(liveNotFound),
+  const notFoundElements = readLiveElements(input.notFoundHtml);
+  const notFoundRobots = resolveRobotsMeta(
+    notFoundElements,
+    '404 page',
     '404 robots meta',
     problems,
   );
   if (notFoundRobots === undefined || !blocksIndexing(notFoundRobots))
     problems.push(`404 page robots meta must be noindex, found "${notFoundRobots ?? 'none'}".`);
-  const notFoundCanonicals = findCanonicalHrefs(liveNotFound);
-  if (notFoundCanonicals.length > 0) problems.push('404 page must have no canonical link.');
+  // Forbidden anywhere, as on the homepage.
+  if (findCanonicalElements(notFoundElements).length > 0)
+    problems.push('404 page must have no canonical link.');
   if (input.sitemapXml !== undefined && extractSitemapLocs(input.sitemapXml).length !== 1)
     problems.push('sitemap.xml must list exactly one URL (the homepage), never the 404 page.');
 
-  const jsonLd = extractJsonLd(liveHomepage);
+  const jsonLd = extractJsonLd(homepageElements);
   if (!jsonLd) {
     problems.push('Homepage JSON-LD block is missing or does not parse.');
   } else {

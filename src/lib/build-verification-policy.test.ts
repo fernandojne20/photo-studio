@@ -255,13 +255,24 @@ describe('every delivered policy is enforced', () => {
     ]);
   });
 
-  it('rejects a policy meta that only appears after <body>, where browsers ignore it', () => {
+  it('rejects a policy meta that only appears outside <head>, where browsers ignore it', () => {
     const problems = checkContentSecurityPolicy({
       pageHtmls: [`<head></head><body>${page(COMPLIANT_POLICY)}</body>`],
       headersText: headersText(),
     });
     expect(problems).toContain(
-      'page 0: 1 Content-Security-Policy <meta> after <body>, which browsers ignore.',
+      'page 0: 1 Content-Security-Policy <meta> outside <head>, which browsers ignore.',
+    );
+    expect(problems).toContain('page 0: no live Content-Security-Policy <meta> tag.');
+  });
+
+  it('rejects a policy meta that only appears after an implicitly opened body', () => {
+    const problems = checkContentSecurityPolicy({
+      pageHtmls: [`<head></head><p>x</p>${page(COMPLIANT_POLICY)}`],
+      headersText: headersText(),
+    });
+    expect(problems).toContain(
+      'page 0: 1 Content-Security-Policy <meta> outside <head>, which browsers ignore.',
     );
     expect(problems).toContain('page 0: no live Content-Security-Policy <meta> tag.');
   });

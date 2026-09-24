@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { readLiveElements } from './built-dom';
+import { hasRelToken, readLiveElements } from './built-dom';
 
 function names(html: string): string[] {
   return readLiveElements(html).map((element) => element.name);
@@ -410,5 +410,15 @@ describe('memoization', () => {
     const again = readLiveElements(html);
     expect(again).not.toBe(first);
     expect(again).toEqual(first);
+  });
+});
+
+describe('hasRelToken', () => {
+  const rel = (html: string) => readLiveElements(html)[0].attrs;
+
+  it('reads rel as a token list, whatever the case or spacing', () => {
+    expect(hasRelToken(rel('<link rel="alternate  StyleSheet">'), 'stylesheet')).toBe(true);
+    expect(hasRelToken(rel('<link rel="stylesheets">'), 'stylesheet')).toBe(false);
+    expect(hasRelToken(rel('<link href="/x">'), 'stylesheet')).toBe(false);
   });
 });
