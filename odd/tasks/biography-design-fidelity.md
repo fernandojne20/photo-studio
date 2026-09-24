@@ -64,6 +64,8 @@ Out of scope, by the user's decision: body text size and color, heading colors. 
 
 - 2026-09-24, user direction: the page must not draw a fade over the photo. The photo has to bring the dark left side and show the person on the right. The `::before` gradient and `--biography-text-end` are removed. The `Retrato` field in `studio/schemaTypes/documents/home-page.ts` now has a description stating the requirement. Consequence, verified live: the current placeholder (a bright fog photo) makes the text unreadable, because it does not meet the requirement; the real portrait or a conforming placeholder is needed. The user mentioned a subtle blur as a possibility, not decided. `pnpm check`: RC=0, 793 tests. After merge, the Studio schema needs a `sanity schema deploy` / `sanity deploy` for the description to show (authorized for the user's CLI session).
 
+- 2026-09-24, content (user request): the dataset's biography portrait was replaced with a placeholder that meets the requirement. It is built from an Unsplash photo (`oHllfx1F0JE` by Goetz Heinen, free license): converted to black and white, composed at 2400×1600 with the face at about 68% of the width, and the left side burned darker inside the photo itself. Uploaded with the Sanity CLI as `image-26d35276b33cf1c440e2944102ec205e11166e56-2400x1600-jpg`. On `homePage` the hotspot is x 0.67, y 0.42, 0.26×0.55, and the alt text marks it as a development reference; published. The build renders `--biography-portrait-position: 73% 32.2%`, which matches the formula. Checked live: at 1366 px the text sits on the dark side with the person on the right; at 393 px the 3:2 card shows the face.
+
 ## Next step
 
-The review bot's verdict; the user decides on the placeholder photo and on the blur; then the user merges.
+The review bot's verdict; the user decides on the blur; then the user merges and the Studio schema is deployed.
