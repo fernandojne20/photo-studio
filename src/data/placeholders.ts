@@ -5,7 +5,7 @@
  * and loading behavior before production photography is available.
  *
  * Deliberately typed for plain `<img>` usage (not Astro's `<Image>`), so the
- * build does not attempt to fetch or optimize these remote URLs.
+ * build does not attempt to fetch or optimize these URLs.
  */
 
 export interface PlaceholderImage {
@@ -101,10 +101,15 @@ export const portfolioPlaceholders: PortfolioPlaceholder[] = [
   },
 ];
 
+/* The biography text sits directly on this photo with no overlay, so the
+   fallback must meet the same rule as the Studio's portrait field: landscape,
+   dark on the left, the person on the right. A random image cannot promise
+   that, so this one is a local file (a free Unsplash studio portrait,
+   `oHllfx1F0JE`, converted to black and white and recomposed). */
 export const biographyPortraitPlaceholder: PlaceholderImage = {
-  src: 'https://picsum.photos/seed/lh-bio/600/800?grayscale',
-  alt: 'Retrato de la fotógrafa Laury Herrera, imagen de referencia para desarrollo.',
-  width: 600,
+  src: '/placeholders/biography-portrait.jpg',
+  alt: 'Retrato en blanco y negro sobre fondo oscuro, imagen de referencia para desarrollo.',
+  width: 1200,
   height: 800,
 };
 

@@ -45,6 +45,8 @@ export const homePage = defineType({
         defineField({
           name: 'portrait',
           title: 'Retrato',
+          description:
+            'En computador ocupa todo el fondo de la sección y el texto va sobre el lado izquierdo, sin ningún efecto encima: debe ser una foto horizontal con el lado izquierdo oscuro y la persona a la derecha. El área de interés (hotspot) marca lo que siempre debe verse. En teléfono se muestra recortada en formato 3:2.',
           type: 'imageWithAlt',
           validation: (Rule) => Rule.required(),
         }),
