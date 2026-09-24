@@ -68,6 +68,9 @@ Out of scope, by the user's decision: body text size and color, heading colors. 
 
 - 2026-09-24, review bot: `74d337a` came back clean ("Didn't find any major issues"). Round 3 on `6b66641` (one P2, accepted): the local content fallback (`CONTENT_FALLBACKS=true`, CI) still used a random Picsum portrait, which without the overlay could put the text on a bright photo. Fix: the fallback is a local file, `public/placeholders/biography-portrait.jpg` (1200×800, 61 kB, the same conforming composition), served from the site's own origin. Checked by reproducing the fallback markup in the browser (plain `src`, no srcset, no mobile source, no hotspot variable): centered at 50% 50%, it covers 1366×1021 with the text on the dark side. A shell override of the Sanity dataset did not force the fallback in a local build, and `.env` was not touched. `pnpm check`: RC=0.
 
+- 2026-09-24: the review bot came back clean on `0f6fdb9` and CI was green; PR #35 was merged as `26ec47b`, with content identical to the reviewed commit. The Studio was deployed (`sanity deploy`), and the deployed schema carries the `Retrato` description. The user decided to keep the section without a blur for now. The unreferenced fog-tree asset was deleted from the dataset after confirming that nothing referenced it.
+- 2026-09-24, follow-up on branch `chore/small-follow-ups`: the tagline now stays on one line at every width, with its size following the viewport on narrow phones (`min(var(--text-md), calc(4.8vw - 2px))`); verified at 320, 360, 393, 430, 768, 901 and 1366 px.
+
 ## Next step
 
-The review bot's verdict on round 3; the user decides on the blur; then the user merges and the Studio schema is deployed.
+None. Feature closed.

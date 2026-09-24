@@ -61,6 +61,8 @@ Slices 2 to 5 are independent of each other and branch from `main` once slice 1 
 - [ ] PD-07 Deploy workflow for Cloudflare Workers: strict content build, secrets and variables in the right place, skipped while secrets are missing, manual and content-change triggers. A deploy triggered by content must REPORT the budgets without enforcing them: editor text has no maximum, so only a pull request, where a developer can act, may fail on size. Once the biography button fix is on `main`, the verifier must classify links with the same `analyticsEventForHref` the page uses, so the two can never disagree.
 - [ ] PD-08 Launch checklist: accounts, DNS, Resend domain verification, real Turnstile keys, secrets, font licensing, Instagram handle, first real delivery test, Sanity webhook.
 
+- 2026-09-24: PD-07 is deferred by the user until a Cloudflare account and the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets exist. The research is saved in Engram.
+
 ## Acceptance criteria
 
 - Without a valid `PUBLIC_SITE_URL` the built page is `noindex`, has no canonical URL, `robots.txt` allows crawling without a `Sitemap:` line and no `sitemap.xml` exists; with it the page has a canonical URL, `og:url`, a one-URL sitemap and the `Sitemap:` line. Sharing metadata and valid JSON-LD exist in both modes.

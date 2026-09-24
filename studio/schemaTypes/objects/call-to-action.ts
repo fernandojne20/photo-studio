@@ -50,7 +50,7 @@ export const callToAction = defineType({
           const parent = context.parent as CallToActionParent | undefined
           const hasOtherFields = Boolean(parent?.label || parent?.url)
           if (hasOtherFields && !value) {
-            return 'Elegí un destino para el llamado a la acción.'
+            return 'Elige un destino para el llamado a la acción.'
           }
           return true
         }),

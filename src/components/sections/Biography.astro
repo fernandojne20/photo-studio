@@ -135,8 +135,8 @@ const portraitPosition = hotspotObjectPosition(biography.portrait);
   .biography__script {
     grid-area: tagline;
     font-family: var(--font-script);
-    /* One line at the design width, as in the mockup. */
-    font-size: var(--text-md);
+    /* One line at every width, as in the mockup: the phrase is about 20.6em wide in this script face, so on narrow phones the size follows the viewport (minus the container's 16px sides) instead of wrapping. */
+    font-size: min(var(--text-md), calc(4.8vw - 2px));
     color: var(--color-heading-dark);
     margin-bottom: var(--space-sm);
   }
