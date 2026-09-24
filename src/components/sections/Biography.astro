@@ -3,6 +3,7 @@ import SanityImage from '../SanityImage.astro';
 import Monogram from '../Monogram.astro';
 import PortableTextBody from '../PortableTextBody.astro';
 import { site, buildWhatsAppUrl } from '../../config/site';
+import { buildSanitySrcSet } from '../../lib/sanity-image';
 import type { BiographyContent, BiographyCta } from '../../content/types';
 import { analyticsEventForHref } from '../../lib/analytics-events';
 
@@ -32,6 +33,18 @@ const ctaEvent = ctaHref ? analyticsEventForHref(ctaHref, site.instagram.url) : 
 const ctaAnalytics = ctaEvent
   ? { 'data-analytics-event': ctaEvent, 'data-analytics-placement': 'biography' }
   : {};
+
+/* Frame ratios from the mockup, same technique as Hero.astro: passing a
+   ratio to the Sanity builder crops around the editor's hotspot instead of
+   leaving the browser center-crop with `object-fit: cover`. */
+const DESKTOP_RATIO = '1366 / 920';
+const MOBILE_RATIO = '3 / 2';
+
+/* A placeholder portrait has no Sanity asset to derive a second crop from,
+   so the mobile source only exists for a real editor photo. */
+const mobileSrcSet = biography.portrait.source
+  ? buildSanitySrcSet(biography.portrait, [400, 640, 900], MOBILE_RATIO)
+  : null;
 ---
 
 <section id="biografia" class="biography">
@@ -54,38 +67,82 @@ const ctaAnalytics = ctaEvent
       </a>
     )}
     <div class="biography__portrait">
-      <SanityImage
-        image={biography.portrait}
-        widths={[480, 720, 960, 1200, 1600]}
-        sizes="(max-width: 900px) 100vw, 50vw"
-        aspectRatio="3 / 4"
-        loading="lazy"
-        class="biography__portrait-image"
-      />
+      <picture>
+        {mobileSrcSet && (
+          <source
+            media="(max-width: 900px)"
+            srcset={mobileSrcSet.srcset ?? mobileSrcSet.src}
+            sizes="calc(100vw - 80px)"
+          />
+        )}
+        <SanityImage
+          image={biography.portrait}
+          widths={[640, 960, 1366, 1600, 1920]}
+          sizes="100vw"
+          aspectRatio={DESKTOP_RATIO}
+          loading="lazy"
+          class="biography__portrait-image"
+        />
+      </picture>
     </div>
   </div>
 </section>
 
 <style>
+  /* The custom properties say where the text column starts and how wide it
+     is. The fade below is anchored to the same values, so it always ends past
+     the last letter. 30rem is the mockup's paragraph width, ending at about
+     45% of a 1366px viewport. */
   .biography {
+    --biography-text-start: max(
+      var(--container-padding),
+      calc((100% - var(--container-width)) / 2)
+    );
+    --biography-column: 30rem;
+    --biography-text-end: calc(
+      var(--biography-text-start) + var(--biography-column) + var(--space-lg)
+    );
+    /* Containing block for the full-bleed portrait and its fade below; isolated so their negative z-index stays local to this section, not the whole page. */
+    position: relative;
+    isolation: isolate;
     background: var(--color-bg-dark);
     color: var(--color-text-dark);
   }
 
+  /* Left-to-right fade to the section's own background, so the text reads
+     over near-black no matter which photo the editor uploads. Solid under
+     the whole text column, then clear within about a fifth of the viewport,
+     leaving the right side of the photo (where the subject stands) untouched. */
+  .biography::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(
+      to right,
+      var(--color-bg-dark) var(--biography-text-end),
+      color-mix(in srgb, var(--color-bg-dark) 60%, transparent)
+        calc(var(--biography-text-end) + 8vw),
+      transparent calc(var(--biography-text-end) + 20vw)
+    );
+    pointer-events: none;
+  }
+
   .biography__inner {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: center;
-    column-gap: var(--space-xl);
     padding-block: var(--space-2xl);
-    /* Left edge aligns with the shared container; the right edge is left unpadded so the portrait can bleed to the true viewport edge. */
-    padding-inline-start: max(var(--container-padding), calc((100% - var(--container-width)) / 2));
+    /* Left edge aligns with the shared container; the right edge is left unpadded so the portrait (now a full-section background) can bleed to the true viewport edge. */
+    padding-inline-start: var(--biography-text-start);
+    /* One text track; the rest of the row is empty grid space over the photo. */
+    grid-template-columns: minmax(0, min(50%, var(--biography-column)));
     grid-template-areas:
-      'monogram portrait'
-      'tagline  portrait'
-      'name     portrait'
-      'body     portrait'
-      'cta      portrait';
+      'monogram'
+      'tagline'
+      'name'
+      'body'
+      'cta'
+      'portrait';
   }
 
   :global(.biography__monogram) {
@@ -107,7 +164,9 @@ const ctaAnalytics = ctaEvent
     font-family: var(--font-display);
     font-weight: 500;
     font-size: var(--text-md);
-    letter-spacing: var(--tracking-heading);
+    /* Wide enough that the name spans about the paragraph's width, as in the mockup. Letter-spacing also opens a gap AFTER the last character; the negative margin cancels it so the name still centers correctly once mobile centers the whole column. */
+    letter-spacing: 0.95em;
+    margin-inline-end: -0.95em;
     text-transform: uppercase;
     color: var(--color-heading-dark);
     margin-bottom: var(--space-lg);
@@ -119,13 +178,18 @@ const ctaAnalytics = ctaEvent
 
   .biography__cta {
     grid-area: cta;
-    justify-self: start;
+    justify-self: center;
     margin-top: var(--space-md);
-    padding: var(--space-xs) var(--space-lg);
-    border: 1px solid var(--color-text-dark);
+    /* Tight, proportional padding: em scales with the fluid font-size below. */
+    padding: 0.12em 0.95em;
+    /* Faint fill and a dim border, matching the mockup's translucent pill: rgb(255 255 255 / 25%) over this near-black background blends to roughly #474747, close to the mockup's ~#4a4a4a. */
+    background: rgb(255 255 255 / 4%);
+    border: 1px solid rgb(255 255 255 / 25%);
     border-radius: var(--radius-pill);
     font-family: var(--font-serif);
-    font-size: var(--text-base);
+    /* Fluid from 22px at 393px to 37.6px at 1366px (the mockup's sizes). The larger desktop size also matters for Minion's optical-size axis: `font-optical-sizing: auto` (the browser default, left untouched) picks the display design here instead of the small-text one. */
+    font-size: clamp(1.375rem, 0.981rem + 1.603vw, 2.35rem);
+    line-height: 1.2;
     color: var(--color-heading-dark);
     transition:
       opacity var(--duration-fast) var(--ease-standard),
@@ -144,13 +208,23 @@ const ctaAnalytics = ctaEvent
 
   .biography__portrait {
     grid-area: portrait;
+    /* Full-section background, behind the fade and the text (both above). `.biography__inner` stays unpositioned so this escapes its padding and fills the section edge to edge. */
+    position: absolute;
+    inset: 0;
+    width: 100%;
     height: 100%;
+    z-index: -2;
+  }
+
+  /* `<picture>` has no box of its own here, so percentage sizing on the
+     `<img>` below resolves directly against `.biography__portrait`. */
+  .biography__portrait picture {
+    display: contents;
   }
 
   .biography :global(.biography__portrait-image) {
     width: 100%;
     height: 100%;
-    aspect-ratio: 3 / 4;
     object-fit: cover;
   }
 
@@ -169,18 +243,35 @@ const ctaAnalytics = ctaEvent
         'cta';
     }
 
-    .biography__cta {
-      justify-self: center;
+    .biography__name {
+      /* The desktop tracking overflows a phone; keep the original, narrower tracking, with its own matching trailing-gap compensation. */
+      letter-spacing: var(--tracking-heading);
+      margin-inline-end: calc(-1 * var(--tracking-heading));
+    }
+
+    /* No gradient on mobile: the portrait is a small inset card here, not a full-bleed background the text sits over. */
+    .biography::before {
+      content: none;
     }
 
     .biography__portrait {
-      width: 100%;
+      grid-area: portrait;
+      position: static;
+      width: auto;
       height: auto;
+      z-index: auto;
+      /* Container padding (16px) plus this token (24px) ≈ the mockup's 40px inset from each viewport edge. */
+      margin-inline: var(--space-md);
       margin-block: var(--space-md);
+      border-radius: var(--radius-card);
+      overflow: hidden;
     }
 
     .biography :global(.biography__portrait-image) {
+      width: 100%;
       height: auto;
+      aspect-ratio: 3 / 2;
+      object-fit: cover;
     }
   }
 </style>
