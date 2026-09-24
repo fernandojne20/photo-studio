@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CmsImage } from '../content/types';
-import { buildSanitySrcSet, parseAspectRatio } from './sanity-image';
+import { buildSanitySrcSet, hotspotObjectPosition, parseAspectRatio } from './sanity-image';
 
 describe('parseAspectRatio', () => {
   it('parses a simple "w / h" ratio', () => {
@@ -142,5 +142,63 @@ describe('buildSanitySrcSet', () => {
 
     // 400 * 560 / 393 = 569.974... -> rounds up to 570
     expect(height).toBe('570');
+  });
+});
+
+describe('hotspotObjectPosition', () => {
+  const asset = {
+    _id: 'image-58d0568299b6fbbda3ba967e83dd2e0554fe3eda-1600x1000-jpg',
+    url: 'https://cdn.sanity.io/images/testproject/testdataset/58d0568299b6fbbda3ba967e83dd2e0554fe3eda-1600x1000.jpg',
+  };
+  const imageWith = (source: Record<string, unknown> | undefined): CmsImage => ({
+    source: source as CmsImage['source'],
+    url: '',
+    alt: 'Retrato',
+    width: 1600,
+    height: 1000,
+  });
+
+  it('returns undefined (centered) for a placeholder with no Sanity source', () => {
+    expect(hotspotObjectPosition(imageWith(undefined))).toBeUndefined();
+  });
+
+  it('returns undefined (centered) when the editor set no hotspot', () => {
+    expect(hotspotObjectPosition(imageWith({ asset }))).toBeUndefined();
+  });
+
+  it('uses the hotspot as-is when there is no crop', () => {
+    expect(
+      hotspotObjectPosition(
+        imageWith({ asset, hotspot: { x: 0.8, y: 0.25, width: 0.3, height: 0.3 } }),
+      ),
+    ).toBe('80% 25%');
+  });
+
+  it('re-expresses the hotspot inside the editor crop, which the delivered image is already cut to', () => {
+    const crop = { top: 0, bottom: 0.2, left: 0.1, right: 0.1 };
+    const hotspot = { x: 0.7, y: 0.4, width: 0.2, height: 0.2 };
+    // x: (0.7 - 0.1) / 0.8 = 0.75, y: (0.4 - 0) / 0.8 = 0.5
+    expect(hotspotObjectPosition(imageWith({ asset, hotspot, crop }))).toBe('75% 50%');
+  });
+
+  it('clamps a hotspot that falls outside the crop to the nearest edge', () => {
+    const crop = { top: 0.5, bottom: 0, left: 0, right: 0.5 };
+    const hotspot = { x: 0.9, y: 0.1, width: 0.1, height: 0.1 };
+    expect(hotspotObjectPosition(imageWith({ asset, hotspot, crop }))).toBe('100% 0%');
+  });
+
+  it('returns undefined (centered) for a degenerate crop with no area', () => {
+    const crop = { top: 0, bottom: 0, left: 0.5, right: 0.5 };
+    const hotspot = { x: 0.5, y: 0.5, width: 0.1, height: 0.1 };
+    expect(hotspotObjectPosition(imageWith({ asset, hotspot, crop }))).toBeUndefined();
+  });
+
+  it('pairs with a width-only srcset that keeps the editor crop, so the percentages refer to the same pixels', () => {
+    const crop = { top: 0, bottom: 0.2, left: 0.1, right: 0.1 };
+    const hotspot = { x: 0.7, y: 0.4, width: 0.2, height: 0.2 };
+    const url = new URL(buildSanitySrcSet(imageWith({ asset, hotspot, crop }), [800]).src);
+    // 1600x1000 asset cut to left 10%, right 10%, bottom 20%: x 160, y 0, 1280x800.
+    expect(url.searchParams.get('rect')).toBe('160,0,1280,800');
+    expect(url.searchParams.get('fit')).toBeNull();
   });
 });

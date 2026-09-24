@@ -56,6 +56,9 @@ Out of scope, by the user's decision: body text size and color, heading colors. 
 - Prettier is not idempotent on a multi-line comment placed inside a CSS rule in `.astro` files: each `--write` indents it further. Such comments go above the selector.
 - Observed, out of scope: at 393 px the tagline "Creando recuerdos para toda la vida." wraps onto two lines; the mockup shows one line. The tagline styles are unchanged by this branch.
 
+- 2026-09-24: PR #35 opened. CI green (5 of 5).
+- 2026-09-24, review bot round 1 (one P2 finding, accepted): the desktop crop requested a fixed `1366 / 920` ratio, but the section's frame follows the text (1366×1021 at 1366 px), so `object-fit: cover` cropped the CDN crop a second time around the center and could clip a subject whose hotspot is near an edge. Fix: desktop requests the full image (the editor's crop still applies as `rect`), and the browser crops it with `object-position` taken from the hotspot, re-expressed inside the editor's crop (`hotspotObjectPosition` in `src/lib/sanity-image.ts`, passed as `--biography-portrait-position` on the wrapper). With `P% Q%` the hotspot is never outside the frame. Mobile keeps the CDN crop because its frame is fixed at 3:2. Tradeoff: a tall photo delivers more pixels on desktop than a cropped one; the portrait is lazy-loaded and outside the byte budgets. Seven new tests; three mutations of the helper were all caught. `pnpm check`: RC=0, 790 tests. Checked live: the portrait still covers 1366×1021, the object position follows the variable (a simulated `80% 20%` was applied), and mobile is unchanged (313×209 from the 3:2 source, no horizontal scroll).
+
 ## Next step
 
-Open the pull request; the user merges.
+The review bot's verdict on the fix; then the user merges.

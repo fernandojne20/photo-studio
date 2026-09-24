@@ -3,7 +3,7 @@ import SanityImage from '../SanityImage.astro';
 import Monogram from '../Monogram.astro';
 import PortableTextBody from '../PortableTextBody.astro';
 import { site, buildWhatsAppUrl } from '../../config/site';
-import { buildSanitySrcSet } from '../../lib/sanity-image';
+import { buildSanitySrcSet, hotspotObjectPosition } from '../../lib/sanity-image';
 import type { BiographyContent, BiographyCta } from '../../content/types';
 import { analyticsEventForHref } from '../../lib/analytics-events';
 
@@ -34,17 +34,19 @@ const ctaAnalytics = ctaEvent
   ? { 'data-analytics-event': ctaEvent, 'data-analytics-placement': 'biography' }
   : {};
 
-/* Frame ratios from the mockup, same technique as Hero.astro: passing a
-   ratio to the Sanity builder crops around the editor's hotspot instead of
-   leaving the browser center-crop with `object-fit: cover`. */
-const DESKTOP_RATIO = '1366 / 920';
+/* The mobile card has a fixed 3:2 frame, so the Sanity CDN can crop around
+   the editor's hotspot at exactly that ratio. A placeholder portrait has no
+   Sanity asset to derive that crop from, so the source only exists for a
+   real editor photo. */
 const MOBILE_RATIO = '3 / 2';
-
-/* A placeholder portrait has no Sanity asset to derive a second crop from,
-   so the mobile source only exists for a real editor photo. */
 const mobileSrcSet = biography.portrait.source
   ? buildSanitySrcSet(biography.portrait, [400, 640, 900], MOBILE_RATIO)
   : null;
+
+/* The desktop frame is the whole section, whose height follows the text, so
+   no fixed CDN ratio would match it. The full image is delivered instead and
+   the browser crops it, positioned so the hotspot always stays in frame. */
+const portraitPosition = hotspotObjectPosition(biography.portrait);
 ---
 
 <section id="biografia" class="biography">
@@ -66,7 +68,10 @@ const mobileSrcSet = biography.portrait.source
         {cta.label}
       </a>
     )}
-    <div class="biography__portrait">
+    <div
+      class="biography__portrait"
+      style={portraitPosition ? `--biography-portrait-position: ${portraitPosition}` : undefined}
+    >
       <picture>
         {mobileSrcSet && (
           <source
@@ -79,7 +84,6 @@ const mobileSrcSet = biography.portrait.source
           image={biography.portrait}
           widths={[640, 960, 1366, 1600, 1920]}
           sizes="100vw"
-          aspectRatio={DESKTOP_RATIO}
           loading="lazy"
           class="biography__portrait-image"
         />
@@ -222,10 +226,13 @@ const mobileSrcSet = biography.portrait.source
     display: contents;
   }
 
+  /* The position comes from the editor's hotspot (set inline on the wrapper);
+     it also applies to a mobile card served without its own 3:2 source. */
   .biography :global(.biography__portrait-image) {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: var(--biography-portrait-position, 50% 50%);
   }
 
   @media (max-width: 900px) {
