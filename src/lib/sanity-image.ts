@@ -22,7 +22,8 @@ export function parseAspectRatio(ratio: string): ParsedAspectRatio | null {
 }
 
 interface HotspotSource {
-  hotspot?: { x: number; y: number } | null;
+  /** Center and size of the editor's important region, as fractions of the whole asset. */
+  hotspot?: { x: number; y: number; width?: number; height?: number } | null;
   crop?: { top: number; bottom: number; left: number; right: number } | null;
 }
 
@@ -31,13 +32,28 @@ function clampUnit(value: number): number {
 }
 
 /**
+ * The `object-position` fraction for one axis that keeps the region
+ * [start, end] (fractions of the image) fully visible in every frame big
+ * enough to hold it. With position P and a frame showing a fraction f of the
+ * image, the visible window starts at P·(1 − f). P = start / (start + (1 − end))
+ * puts that window exactly on the region at the tightest frame (f = end − start)
+ * and only adds margin as the frame grows. A region spanning the whole axis
+ * fits any frame, so its center is used.
+ */
+function positionForRegion(start: number, end: number): number {
+  const before = start;
+  const after = 1 - end;
+  return before + after === 0 ? (start + end) / 2 : before / (before + after);
+}
+
+/**
  * CSS `object-position` that keeps the editor's hotspot inside a frame whose
  * aspect ratio is not known at build time (it follows the content's height).
  * A fixed-ratio CDN crop would be cropped a second time by `object-fit: cover`
- * around the center; with `P% Q%`, the image point at P%/Q% lands on the same
- * point of the frame, so the hotspot is never cut off. The hotspot is relative
- * to the whole asset, while the delivered image is already cut to the editor's
- * crop, so it is re-expressed inside the crop. `undefined` means "center".
+ * around the center. The whole hotspot rectangle, not only its center, stays
+ * visible whenever the frame can hold it. The hotspot is relative to the whole
+ * asset, while the delivered image is already cut to the editor's crop, so it
+ * is re-expressed inside the crop. `undefined` means "center".
  */
 export function hotspotObjectPosition(image: CmsImage): string | undefined {
   const source = image.source as HotspotSource | undefined;
@@ -47,8 +63,13 @@ export function hotspotObjectPosition(image: CmsImage): string | undefined {
   const cropWidth = 1 - crop.left - crop.right;
   const cropHeight = 1 - crop.top - crop.bottom;
   if (cropWidth <= 0 || cropHeight <= 0) return undefined;
-  const x = clampUnit((hotspot.x - crop.left) / cropWidth);
-  const y = clampUnit((hotspot.y - crop.top) / cropHeight);
+
+  const halfWidth = (hotspot.width ?? 0) / 2;
+  const halfHeight = (hotspot.height ?? 0) / 2;
+  const inCropX = (value: number) => clampUnit((value - crop.left) / cropWidth);
+  const inCropY = (value: number) => clampUnit((value - crop.top) / cropHeight);
+  const x = positionForRegion(inCropX(hotspot.x - halfWidth), inCropX(hotspot.x + halfWidth));
+  const y = positionForRegion(inCropY(hotspot.y - halfHeight), inCropY(hotspot.y + halfHeight));
   const percent = (value: number) => `${Math.round(value * 1000) / 10}%`;
   return `${percent(x)} ${percent(y)}`;
 }

@@ -166,25 +166,61 @@ describe('hotspotObjectPosition', () => {
     expect(hotspotObjectPosition(imageWith({ asset }))).toBeUndefined();
   });
 
-  it('uses the hotspot as-is when there is no crop', () => {
-    expect(
-      hotspotObjectPosition(
-        imageWith({ asset, hotspot: { x: 0.8, y: 0.25, width: 0.3, height: 0.3 } }),
-      ),
-    ).toBe('80% 25%');
+  it('uses the center when the hotspot has no size (an older or point hotspot)', () => {
+    expect(hotspotObjectPosition(imageWith({ asset, hotspot: { x: 0.8, y: 0.25 } }))).toBe(
+      '80% 25%',
+    );
+  });
+
+  it('positions by the room before and after the hotspot rectangle, not by its center', () => {
+    // x: region 0.65..0.95, before 0.65, after 0.05 -> 0.65 / 0.70 = 92.9%
+    // y: region 0.10..0.40, before 0.10, after 0.60 -> 0.10 / 0.70 = 14.3%
+    const hotspot = { x: 0.8, y: 0.25, width: 0.3, height: 0.3 };
+    expect(hotspotObjectPosition(imageWith({ asset, hotspot }))).toBe('92.9% 14.3%');
   });
 
   it('re-expresses the hotspot inside the editor crop, which the delivered image is already cut to', () => {
     const crop = { top: 0, bottom: 0.2, left: 0.1, right: 0.1 };
     const hotspot = { x: 0.7, y: 0.4, width: 0.2, height: 0.2 };
-    // x: (0.7 - 0.1) / 0.8 = 0.75, y: (0.4 - 0) / 0.8 = 0.5
-    expect(hotspotObjectPosition(imageWith({ asset, hotspot, crop }))).toBe('75% 50%');
+    // x: region 0.6..0.8 -> (0.625..0.875) in the crop -> 0.625 / 0.75 = 83.3%
+    // y: region 0.3..0.5 -> (0.375..0.625) in the crop -> 0.375 / 0.75 = 50%
+    expect(hotspotObjectPosition(imageWith({ asset, hotspot, crop }))).toBe('83.3% 50%');
   });
 
   it('clamps a hotspot that falls outside the crop to the nearest edge', () => {
     const crop = { top: 0.5, bottom: 0, left: 0, right: 0.5 };
     const hotspot = { x: 0.9, y: 0.1, width: 0.1, height: 0.1 };
     expect(hotspotObjectPosition(imageWith({ asset, hotspot, crop }))).toBe('100% 0%');
+  });
+
+  it('centers a hotspot that spans the whole axis, which any frame holds', () => {
+    const hotspot = { x: 0.5, y: 0.3, width: 1, height: 0.2 };
+    // y: region 0.2..0.4, before 0.2, after 0.6 -> 25%
+    expect(hotspotObjectPosition(imageWith({ asset, hotspot }))).toBe('50% 25%');
+  });
+
+  it('keeps the whole hotspot rectangle visible in every frame big enough to hold it', () => {
+    // With object-position P and a frame showing a fraction f of the image,
+    // the visible window is [P * (1 - f), P * (1 - f) + f].
+    const regions: Array<[number, number]> = [
+      [0.05, 0.35],
+      [0.6, 0.95],
+      [0, 0.3],
+      [0.7, 1],
+      [0.4, 0.45],
+    ];
+    for (const [start, end] of regions) {
+      const center = (start + end) / 2;
+      const hotspot = { x: 0.5, y: center, width: 0.1, height: end - start };
+      const position = hotspotObjectPosition(imageWith({ asset, hotspot })) ?? '';
+      const p = Number(position.split(' ')[1].replace('%', '')) / 100;
+      for (let f = end - start + 0.01; f < 1; f += 0.01) {
+        const windowStart = p * (1 - f);
+        // 0.002 absorbs the percentage's rounding to one decimal.
+        expect(windowStart).toBeLessThanOrEqual(start + 0.002);
+        expect(windowStart + f).toBeGreaterThanOrEqual(end - 0.002);
+      }
+    }
   });
 
   it('returns undefined (centered) for a degenerate crop with no area', () => {
