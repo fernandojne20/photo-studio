@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { checkAnalyticsMarkup, checkPageHygiene } from './build-verification-markup';
+import { analyticsEventForHref } from './analytics-events';
+import { site } from '../config/site';
 
 const WHATSAPP_LINK =
   '<a href="https://wa.me/1" data-analytics-event="whatsapp_click" data-analytics-placement="header">wa</a>';
@@ -197,5 +199,82 @@ describe('links and resources as the browser resolves them', () => {
       '<script type="module" src="/_astro/a.js?a=1&AMP;b=2"></script><script src="./b.js"></script>' +
       '<link rel="stylesheet" href="/_astro/c.css"><link rel="stylesheet" href="d.css">';
     expect(checkPageHygiene(html)).toEqual([]);
+  });
+});
+
+describe('checkAnalyticsMarkup agrees with the page classifier', () => {
+  // The exact escaping Astro applies to an interpolated attribute value.
+  const escapeAttr = (value: string): string =>
+    value
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+  const root = site.instagram.url; // the bare 'https://www.instagram.com/' placeholder today
+
+  const HREFS: readonly string[] = [
+    'https://wa.me/1?text=Hola&lang=es',
+    'http://wa.me/1',
+    // The parser turns a NUL into U+FFFD while `URL` drops a trailing one: both sides must still agree.
+    `${root}\0`,
+    'https://wa.me/1\0',
+    'mailto:hola@example.com\0',
+    'https://wa.me',
+    'https://wa.me?text=Hola',
+    'HTTPS://WA.ME/1',
+    '   https://wa.me/1', // leading spaces
+    'https://wa.me:443/1',
+    'https://user@wa.me/1',
+    'https:/wa.me/1', // one slash: still special-scheme authority parsing
+    'https:\\\\wa.me/1', // backslash form: a browser reads \ as / for a special scheme
+    'ht\ttps://wa.me/1', // a tab inside the scheme
+    'https://api.whatsapp.com/send?phone=1',
+    'http://api.whatsapp.com/send?phone=1',
+    'whatsapp://send?phone=1',
+    'https://wa.me.evil.test/1',
+    'https://evil.test/?u=https://wa.me/1',
+    'https://web.whatsapp.com/',
+    'wa.me/1',
+    'mailto:hola@example.com',
+    'MAILTO:hola@example.com',
+    'tel:+5491126821220',
+    root,
+    root.replace(/\/$/, ''), // no trailing slash
+    root.toUpperCase(),
+    `${root}?igsh=abc`,
+    `${root}#x`,
+    root.replace('https://', 'http://'),
+    root.replace('www.', ''), // without www.
+    `${root}otra-cuenta`, // another account
+    `${root}lauryherrera/reel/abc`, // a deeper path
+    'https://example.com/galeria?a=1&b=2',
+    '#contacto',
+    '',
+  ];
+
+  function anchorFor(href: string): string {
+    const event = analyticsEventForHref(href, root);
+    const attrs = event
+      ? ` data-analytics-event="${event}" data-analytics-placement="biography"`
+      : '';
+    return `<a href="${escapeAttr(href)}"${attrs}>x</a>`;
+  }
+
+  it('still asks for the attributes of a bare Instagram link, which the corpus never leaves out', () => {
+    expect(checkAnalyticsMarkup(`<a href="${root}">i</a>`)).toEqual([
+      `Link to "${root}" must carry data-analytics-event="instagram_click", found none.`,
+      `Link to "${root}" must carry a data-analytics-placement from the closed vocabulary, found none.`,
+    ]);
+  });
+
+  it('never disagrees with analyticsEventForHref, for every href in the corpus', () => {
+    const html = HREFS.map(anchorFor).join('');
+    expect(checkAnalyticsMarkup(html)).toEqual([]);
+  });
+
+  it('actually instruments at least one conversion link in the corpus', () => {
+    const instrumented = HREFS.filter((href) => analyticsEventForHref(href, root));
+    expect(instrumented.length).toBeGreaterThan(0);
   });
 });

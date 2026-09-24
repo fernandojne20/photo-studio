@@ -64,8 +64,10 @@ function extractJsonLd(elements: readonly LiveElement[]): Record<string, unknown
   }
 }
 
+/** A `<url>` commented out is not in the sitemap: a search engine never sees it either. */
 function extractSitemapLocs(xml: string): string[] {
-  return [...xml.matchAll(/<loc>([^<]*)<\/loc>/g)].map((match) => match[1]);
+  const withoutComments = xml.replace(/<!--[\s\S]*?-->/g, '');
+  return [...withoutComments.matchAll(/<loc>([^<]*)<\/loc>/g)].map((match) => match[1]);
 }
 
 /**
@@ -137,13 +139,13 @@ function robotsPatternMatches(pattern: string, path: string): boolean {
   return new RegExp(`^${source}${anchored ? '$' : ''}`).test(path);
 }
 
-/** The homepage is shut out when a Disallow matches "/" and no Allow at least as specific does. */
-function blocksHomepage(group: RobotsGroup): boolean {
+/** A crawler's decision for one path: the longest matching pattern wins, `*` and `$` counted as Google counts them, and an Allow wins a tie. */
+function pathIsBlocked(group: RobotsGroup, path: string): boolean {
   const longest = (directive: 'allow' | 'disallow') =>
     Math.max(
       -1,
       ...group.rules
-        .filter((rule) => rule.directive === directive && robotsPatternMatches(rule.path, '/'))
+        .filter((rule) => rule.directive === directive && robotsPatternMatches(rule.path, path))
         .map((rule) => rule.path.length),
     );
   return longest('disallow') > longest('allow');
@@ -190,17 +192,14 @@ function checkRobotsRules(robotsTxt: string): string[] {
     problems.push('robots.txt must have a "User-agent: *" group.');
   } else {
     if (!has(everyone, 'allow', '/')) problems.push('robots.txt must allow "/" for every crawler.');
-    if (!has(everyone, 'disallow', '/api/'))
+    if (!pathIsBlocked(everyone, '/api/'))
       problems.push('robots.txt must disallow "/api/" for every crawler.');
   }
   for (const group of groups) {
     // A crawler with a group of its own ignores the `*` group entirely.
-    const closesApi = group.rules.some(
-      (rule) => rule.directive === 'disallow' && robotsPatternMatches(rule.path, '/api/'),
-    );
-    if (group !== everyone && !closesApi)
+    if (group !== everyone && !pathIsBlocked(group, '/api/'))
       problems.push(`robots.txt must disallow "/api/" for ${group.agents.join(', ')} too.`);
-    if (blocksHomepage(group))
+    if (pathIsBlocked(group, '/'))
       problems.push(
         `robots.txt must not disallow "/" in either mode, found it for ${group.agents.join(', ')}.`,
       );

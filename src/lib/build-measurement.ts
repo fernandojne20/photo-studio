@@ -9,14 +9,32 @@
 
 import { posix } from 'node:path';
 import { hasRelToken, readLiveElements } from './built-dom';
+import { isCrossOrigin, normalizeUrl } from './resource-url';
+import { isExecutableScriptType, scriptTypeString } from './script-type';
 
-/** `<script type="module" src="...">` entries, in document order. */
-export function extractModuleScriptEntries(html: string): string[] {
-  const entries: string[] = [];
+/** The file a same-origin URL names, read as the browser reads it; a query or a fragment is not part of it. */
+function filePathOf(url: string): string {
+  return normalizeUrl(url).replace(/[?#].*$/, '');
+}
+
+export interface EagerScriptEntry {
+  src: string;
+  /** Only a module has static imports to follow. */
+  isModule: boolean;
+}
+
+/**
+ * Every executable external script, classic ones included: `defer` or not, the browser fetches it.
+ * A cross-origin one is the hygiene check's problem; here it is skipped so the measuring cannot crash.
+ */
+export function extractEagerScriptEntries(html: string): EagerScriptEntry[] {
+  const entries: EagerScriptEntry[] = [];
   for (const element of readLiveElements(html)) {
     if (element.name !== 'script') continue;
     const { attrs } = element;
-    if (attrs.type?.toLowerCase() === 'module' && attrs.src !== undefined) entries.push(attrs.src);
+    if (attrs.src === undefined || isCrossOrigin(attrs.src)) continue;
+    if (!isExecutableScriptType(attrs)) continue;
+    entries.push({ src: filePathOf(attrs.src), isModule: scriptTypeString(attrs) === 'module' });
   }
   return entries;
 }
@@ -46,7 +64,8 @@ export function extractStylesheetHrefs(html: string): string[] {
     if (element.name !== 'link') continue;
     const { attrs } = element;
     // `rel` is a token list: `rel="preload stylesheet"` is a stylesheet too.
-    if (hasRelToken(attrs, 'stylesheet') && attrs.href !== undefined) hrefs.push(attrs.href);
+    if (hasRelToken(attrs, 'stylesheet') && attrs.href !== undefined)
+      hrefs.push(filePathOf(attrs.href));
   }
   return hrefs;
 }
@@ -62,15 +81,28 @@ export function extractPreloadedFontHrefs(html: string): string[] {
       attrs.as?.toLowerCase() === 'font' &&
       attrs.href !== undefined
     ) {
-      hrefs.push(attrs.href);
+      hrefs.push(filePathOf(attrs.href));
     }
   }
   return hrefs;
 }
 
-/** Every `url(...)` inside one `@font-face { ... }` block's own CSS text (a block may list several, e.g. woff2+ttf). */
+/**
+ * The font FILES one `@font-face` block names (it may list several, e.g. woff2 and ttf), without a
+ * query or fragment. A `data:` font is already inside the stylesheet's bytes; another origin's is not ours.
+ */
 function extractFontFaceUrls(fontFaceBody: string): string[] {
-  return [...fontFaceBody.matchAll(/url\(["']?([^"')]+)["']?\)/g)].map((match) => match[1]);
+  return [...fontFaceBody.matchAll(/url\(\s*["']?([^"')]+?)["']?\s*\)/gi)]
+    .map((match) => match[1])
+    .filter((url) => !isCrossOrigin(url))
+    .map(filePathOf);
+}
+
+const FONT_FACE_BLOCK = /@font-face\s*\{([^}]*)\}/gi;
+
+/** A rule inside a comment loads nothing. */
+function withoutCssComments(cssText: string): string {
+  return cssText.replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
 /** Every font URL referenced by any `@font-face` rule in any inline `<style>` block of the page. */
@@ -78,11 +110,31 @@ export function extractAllFontFaceUrls(html: string): string[] {
   const urls = new Set<string>();
   for (const element of readLiveElements(html)) {
     if (element.name !== 'style') continue;
-    for (const block of element.text.matchAll(/@font-face\{([^}]*)\}/g)) {
-      for (const url of extractFontFaceUrls(block[1])) urls.add(url);
+    for (const block of withoutCssComments(element.text).matchAll(FONT_FACE_BLOCK)) {
+      // Relative to the homepage, so the same file is never counted under two spellings.
+      for (const url of extractFontFaceUrls(block[1]))
+        urls.add(url.startsWith('/') ? url : resolveSpecifier('/index.html', url));
     }
   }
   return [...urls];
+}
+
+/** Font files of a linked stylesheet. A relative `url(...)` in a CSS file is relative to THAT file, not to the page. */
+export function extractCssFontFaceUrls(cssText: string, cssFilePath: string): string[] {
+  const urls = new Set<string>();
+  for (const block of withoutCssComments(cssText).matchAll(FONT_FACE_BLOCK)) {
+    for (const url of extractFontFaceUrls(block[1])) {
+      urls.add(url.startsWith('/') ? url : resolveSpecifier(cssFilePath, url));
+    }
+  }
+  return [...urls];
+}
+
+/** An `@import` would load a stylesheet that neither the CSS budget nor the font budget ever reads. */
+export function hasCssImport(cssText: string): boolean {
+  // Strings are emptied too: `content: "@import"` imports nothing, `@import "x.css"` still does.
+  const bare = withoutCssComments(cssText).replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, '""');
+  return /@import\b/i.test(bare);
 }
 
 /** Number of live `<img>` tags: what the HTML budget scales with. */
