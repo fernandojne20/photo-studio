@@ -18,7 +18,7 @@ export const imageWithAlt = defineType({
       title: 'Texto alternativo',
       type: 'string',
       validation: (Rule) =>
-        Rule.required().error('Describí la imagen para lectores de pantalla y buscadores.'),
+        Rule.required().error('Describe la imagen para lectores de pantalla y buscadores.'),
     }),
   ],
 })
