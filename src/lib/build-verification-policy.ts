@@ -12,7 +12,7 @@
 import { createHash } from 'node:crypto';
 import { readLiveElements } from './built-dom';
 import type { LiveElement } from './built-dom';
-import { getHeader, parseHeadersFile } from './built-html';
+import { getHeader, parseHeadersFile } from './headers-file';
 import { CSP_DIRECTIVES, SCRIPT_RESOURCES, STYLE_RESOURCES } from './security-headers.mjs';
 
 interface CspDirective {
