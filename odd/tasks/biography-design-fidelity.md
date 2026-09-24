@@ -66,6 +66,8 @@ Out of scope, by the user's decision: body text size and color, heading colors. 
 
 - 2026-09-24, content (user request): the dataset's biography portrait was replaced with a placeholder that meets the requirement. It is built from an Unsplash photo (`oHllfx1F0JE` by Goetz Heinen, free license): converted to black and white, composed at 2400×1600 with the face at about 68% of the width, and the left side burned darker inside the photo itself. Uploaded with the Sanity CLI as `image-26d35276b33cf1c440e2944102ec205e11166e56-2400x1600-jpg`. On `homePage` the hotspot is x 0.67, y 0.42, 0.26×0.55, and the alt text marks it as a development reference; published. The build renders `--biography-portrait-position: 73% 32.2%`, which matches the formula. Checked live: at 1366 px the text sits on the dark side with the person on the right; at 393 px the 3:2 card shows the face.
 
+- 2026-09-24, review bot: `74d337a` came back clean ("Didn't find any major issues"). Round 3 on `6b66641` (one P2, accepted): the local content fallback (`CONTENT_FALLBACKS=true`, CI) still used a random Picsum portrait, which without the overlay could put the text on a bright photo. Fix: the fallback is a local file, `public/placeholders/biography-portrait.jpg` (1200×800, 61 kB, the same conforming composition), served from the site's own origin. Checked by reproducing the fallback markup in the browser (plain `src`, no srcset, no mobile source, no hotspot variable): centered at 50% 50%, it covers 1366×1021 with the text on the dark side. A shell override of the Sanity dataset did not force the fallback in a local build, and `.env` was not touched. `pnpm check`: RC=0.
+
 ## Next step
 
-The review bot's verdict; the user decides on the blur; then the user merges and the Studio schema is deployed.
+The review bot's verdict on round 3; the user decides on the blur; then the user merges and the Studio schema is deployed.
