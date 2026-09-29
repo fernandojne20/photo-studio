@@ -2,8 +2,10 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   // Static site with one on-demand route (`/api/contact`), served through
   // `@astrojs/cloudflare` as a Worker with static assets. No account id and
-  // no routes here: those are set when the site is actually deployed
-  // (`production-delivery`, out of scope for `contact-conversion`).
+  // no routes here on purpose: the deploy workflow (PD-07) passes the account
+  // id as an environment variable. `wrangler deploy` does not read this file
+  // after a build: the adapter redirects it (`.wrangler/deploy/config.json`)
+  // to the generated `dist/server/wrangler.json`, whose assets are `dist/client`.
   "name": "photo-studio",
   "compatibility_date": "2026-09-18",
   "main": "@astrojs/cloudflare/entrypoints/server",
