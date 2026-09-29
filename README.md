@@ -203,11 +203,11 @@ At [sanity.io/manage](https://www.sanity.io/manage), open the project, then **AP
 - **Trigger on**: create, update and delete
 - **Filter**: `_type in ["homePage", "portfolioImage", "serviceCategory"]` (the document types in `studio/schemaTypes/documents`), with the option to trigger on drafts left off (the default), so only published changes deploy.
 - **Projection**: `{"event_type": "sanity-content-published"}`
-- **HTTP headers**: `Authorization: Bearer <GitHub token>` and `Accept: application/vnd.github+json`
+- **HTTP headers**: `Authorization: Bearer <GitHub token>`, `Accept: application/vnd.github+json` and `X-GitHub-Api-Version: 2026-03-10`
 
-The GitHub token is a fine-grained personal access token (GitHub Settings > Developer settings > Personal access tokens), limited to **this repository only**, with the permission **Contents: Read and write**, which is what `POST /repos/{owner}/{repo}/dispatches` requires. Keep the token inside the webhook's header and nowhere else.
+The GitHub token is a fine-grained personal access token (GitHub Settings > Developer settings > Personal access tokens > Fine-grained tokens), limited to **this repository only**, with the repository permission **Contents: Read and write**: GitHub lists `POST /repos/{owner}/{repo}/dispatches` under "Repository permissions for Contents" with write access. Fine-grained tokens expire; when it does, content publishes stop deploying until a new token replaces the one in the webhook header. Keep the token inside the webhook's header and nowhere else.
 
-Not verified against a live account: the Sanity webhook form's exact field names and the token permission name (both are from the GitHub REST documentation and Sanity's webhook fields as known; check them in the UI when you set it up). Test it with the webhook's **Delivery attempts** view: GitHub answers `204` when the dispatch was accepted.
+The projection becomes the request body, and drafts and versions do not trigger the webhook unless their toggles are turned on (both are off by default). To test it, publish a change in the Studio: the webhook's **attempts log** (its three-dot menu) should show `204`, the answer GitHub gives when it accepts the dispatch, and a **Deploy** run with the event `repository_dispatch` appears in the Actions tab.
 
 ## Repository layout
 
