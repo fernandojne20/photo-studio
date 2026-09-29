@@ -8,6 +8,7 @@
  * `odd/tasks/production-delivery.md`).
  *
  *   pnpm build:verify --mode=non-indexable
+ *   pnpm build:verify --mode=non-indexable --budgets=report   (budgets warn, never fail; PD-07 content deploys)
  *   PUBLIC_SITE_URL=https://www.example.com pnpm build:verify --mode=indexable --origin=https://www.example.com
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -22,9 +23,14 @@ import {
 // PR2: the Content Security Policy relation, and per-page markup/hygiene.
 import { checkContentSecurityPolicy } from '../src/lib/build-verification-policy';
 import { checkAnalyticsMarkup, checkPageHygiene } from '../src/lib/build-verification-markup';
+import {
+  failingProblems,
+  parseBudgetMode,
+  splitBudgetFailures,
+  type BudgetMode,
+} from '../src/lib/budget-mode';
 // PR3: the budget table and its measuring.
 import {
-  budgetProblems,
   evaluateBudgets,
   formatBudgetValue,
   PERFORMANCE_BUDGETS,
@@ -35,6 +41,7 @@ import { measureBuild } from './measure-build';
 interface Args {
   mode: Mode;
   origin?: string;
+  budgets: BudgetMode;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -45,7 +52,9 @@ function parseArgs(argv: string[]): Args {
   }
   const mode = flags.get('mode');
   if (mode !== 'indexable' && mode !== 'non-indexable') {
-    console.error('Usage: verify-build.ts --mode=indexable|non-indexable [--origin=https://...]');
+    console.error(
+      'Usage: verify-build.ts --mode=indexable|non-indexable [--origin=https://...] [--budgets=enforce|report]',
+    );
     process.exit(1);
   }
   const origin = flags.get('origin');
@@ -61,7 +70,14 @@ function parseArgs(argv: string[]): Args {
     );
     process.exit(1);
   }
-  return { mode, origin };
+  let budgets: BudgetMode;
+  try {
+    budgets = parseBudgetMode(flags.get('budgets'));
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+  return { mode, origin, budgets };
 }
 
 /** The dotenv files `astro build` reads, in Vite's order; only PUBLIC_SITE_URL is taken from them. */
@@ -162,7 +178,9 @@ function main(): void {
     );
   }
   const budgetResults = evaluateBudgets(measurements);
-  problems.push(...budgetProblems(budgetResults));
+  // Only an exceeded maximum may be relaxed; a broken measurement always fails.
+  const { overLimit: overBudget, broken } = splitBudgetFailures(budgetResults);
+  problems.push(...broken);
 
   console.log(`\nPerformance budgets (${PERFORMANCE_BUDGETS.length}):`);
   console.log('name'.padEnd(24), 'measured'.padStart(12), 'limit'.padStart(12), 'status');
@@ -175,9 +193,17 @@ function main(): void {
     );
   }
 
-  if (problems.length > 0) {
-    console.error(`\nBuild verification failed (${args.mode}), ${problems.length} problem(s):`);
-    for (const problem of problems) console.error(`  - ${problem}`);
+  // PD-07: in report mode the over-budget rows are still shown, as
+  // warnings, but only the other problems can fail the run.
+  if (args.budgets === 'report' && overBudget.length > 0) {
+    console.warn(`\nBudgets reported, not enforced (--budgets=report), ${overBudget.length} over:`);
+    for (const problem of overBudget) console.warn(`  - ${problem}`);
+  }
+
+  const failing = failingProblems(args.budgets, problems, overBudget);
+  if (failing.length > 0) {
+    console.error(`\nBuild verification failed (${args.mode}), ${failing.length} problem(s):`);
+    for (const problem of failing) console.error(`  - ${problem}`);
     process.exitCode = 1;
     return;
   }

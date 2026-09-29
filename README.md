@@ -155,6 +155,60 @@ Only Montserrat (`--font-display`) and Futura Light BT (`--font-ui`) are marked 
 
 The four other font files are uncompressed desktop formats (`adelia.ttf` 135 kB, `futura-light-bt.ttf` 37 kB, `dm-sans-variable.ttf` 239 kB, `minion-variable-concept-roman.otf` 299 kB). Adelia, Futura Light BT and Minion are commercial fonts whose web licensing the owner has not confirmed, and converting a font's format is a licensing decision, so they are deliberately left as they are. DM Sans is open-licensed (SIL OFL): it can be served as WOFF2 through Astro's Google provider, like Montserrat, which is a follow-up and would make preloading it on mobile cheap. As an estimate, not a measurement, WOFF2 for all four would bring the total from about 727 kB to about 515 kB. The total font budget has almost no headroom for that reason: it must only go down.
 
+## Deployment
+
+`.github/workflows/deploy.yml` (PD-07) deploys to Cloudflare Workers with the lockfile's Wrangler (`pnpm exec wrangler deploy`), on three triggers: **Run workflow** by hand (Actions tab), a push to `main` (a merged pull request already passed CI), and a Sanity content publish (`repository_dispatch`, `sanity-content-published`). Only `main` is ever deployed (a manual run on another branch is skipped with a notice). Deploys never run in parallel and a running one is never cancelled; a run waiting behind it is replaced by a newer one, which is fine because every run builds the latest `main`.
+
+The build is strict: it runs without `CONTENT_FALLBACKS`, so a Sanity error or missing content fails the run instead of shipping placeholders. After it, `pnpm build:verify` runs (indexable when `PUBLIC_SITE_URL` is set, otherwise non-indexable). A push or manual deploy enforces the performance budgets; a **content** deploy only reports an exceeded maximum, because editor text has no maximum and nobody could act on that failure. A broken measurement (missing, or below a budget's minimum) fails every deploy. Every other check (policy, markup, indexing) still fails the run. Locally: `pnpm build:verify --mode=non-indexable --budgets=report`.
+
+Until both Cloudflare secrets below exist, the workflow's `gate` job skips the deploy with a notice; it does not fail.
+
+### 0. The workers.dev subdomain (once per account)
+
+A new Cloudflare account has no `workers.dev` subdomain, and the first deploy fails without one (API error `10007`). Open **Workers & Pages** in the Cloudflare dashboard once: the first visit creates the subdomain automatically. The site is then served at `https://photo-studio.<subdomain>.workers.dev`.
+
+### 1. GitHub secrets and variables
+
+GitHub, repository **Settings > Secrets and variables > Actions**.
+
+**Secrets** tab:
+
+- `CLOUDFLARE_API_TOKEN`: create it in the Cloudflare dashboard (Manage Account > **Account API tokens** > Create Token) from the **Edit Cloudflare Workers** template. Leave the template's permissions as they are and leave **Client IP address filtering** empty: GitHub's runners change IP addresses.
+- `CLOUDFLARE_ACCOUNT_ID`: your Cloudflare account id (Workers & Pages overview, right-hand side).
+
+**Variables** tab (public values, inlined in the built site):
+
+- `PUBLIC_TURNSTILE_SITE_KEY`: the Turnstile widget's site key. If unset, the build succeeds but ships no site key: the contact form shows its "not configured" error on submit and never loads Turnstile.
+- `PUBLIC_SITE_URL`: leave it **unset** while the site lives on `workers.dev` (the build stays non-indexable). Once the custom domain is connected, set it to `https://<domain>` (bare origin, no path) to make the build indexable.
+
+### 2. Cloudflare runtime secrets
+
+The contact endpoint reads these from the Worker at runtime, so they live in Cloudflare, not in GitHub. Set each once from your machine; deploys do not remove them:
+
+```sh
+pnpm wrangler secret put TURNSTILE_SECRET_KEY
+pnpm wrangler secret put RESEND_API_KEY
+pnpm wrangler secret put CONTACT_FROM_EMAIL
+pnpm wrangler secret put CONTACT_TO_EMAIL
+```
+
+Each command prompts for the value. Before the first deploy the Worker does not exist yet: Wrangler 4.135 then asks whether to create a Worker with that name and add the secret to it (the prompt text is in its bundled source; the full first-run flow was not run here, so treat it as unverified). If it does not work, deploy once first and set the secrets after.
+
+### 3. Sanity webhook (content deploys)
+
+At [sanity.io/manage](https://www.sanity.io/manage), open the project, then **API > Webhooks > Create webhook**:
+
+- **URL**: `https://api.github.com/repos/fernandojne20/photo-studio/dispatches`
+- **Method**: `POST`
+- **Trigger on**: create, update and delete
+- **Filter**: `_type in ["homePage", "portfolioImage", "serviceCategory"]` (the document types in `studio/schemaTypes/documents`), with the option to trigger on drafts left off (the default), so only published changes deploy.
+- **Projection**: `{"event_type": "sanity-content-published"}`
+- **HTTP headers**: `Authorization: Bearer <GitHub token>` and `Accept: application/vnd.github+json`
+
+The GitHub token is a fine-grained personal access token (GitHub Settings > Developer settings > Personal access tokens), limited to **this repository only**, with the permission **Contents: Read and write**, which is what `POST /repos/{owner}/{repo}/dispatches` requires. Keep the token inside the webhook's header and nowhere else.
+
+Not verified against a live account: the Sanity webhook form's exact field names and the token permission name (both are from the GitHub REST documentation and Sanity's webhook fields as known; check them in the UI when you set it up). Test it with the webhook's **Delivery attempts** view: GitHub answers `204` when the dispatch was accepted.
+
 ## Repository layout
 
 - `src/` — the Astro site: pages, layouts, components, content mapping, and the Sanity client

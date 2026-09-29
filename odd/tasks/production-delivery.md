@@ -62,6 +62,24 @@ Slices 2 to 5 are independent of each other and branch from `main` once slice 1 
 - [ ] PD-08 Launch checklist: accounts, DNS, Resend domain verification, real Turnstile keys, secrets, font licensing, Instagram handle, first real delivery test, Sanity webhook.
 
 - 2026-09-24: PD-07 is deferred by the user until a Cloudflare account and the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets exist. The research is saved in Engram.
+- 2026-09-29, PD-07 unblocked. The user has a Cloudflare account; `CLOUDFLARE_API_TOKEN` is set in GitHub and `CLOUDFLARE_ACCOUNT_ID` is being set, both by the user. Decisions:
+  - First deploys go to `*.workers.dev`, with `PUBLIC_SITE_URL` unset so the build stays non-indexable. The user owns a domain, to be connected later (PD-08).
+  - The user registers every secret personally. The agent only gives instructions and never writes, reads or lists secret values. GitHub holds only the deploy credentials and the public build values as Actions variables. The four runtime values (`TURNSTILE_SECRET_KEY`, `RESEND_API_KEY`, `CONTACT_FROM_EMAIL`, `CONTACT_TO_EMAIL`, all `access: 'secret'` server fields in `astro:env`) live only in Cloudflare, set by the user with `wrangler secret put`; deploys do not remove them.
+  - Triggers: manual (`workflow_dispatch`), content (`repository_dispatch` from a Sanity webhook) and pushes to `main` (a merged pull request already passed CI).
+  - The deploy runs the lockfile's Wrangler (`pnpm exec wrangler deploy`), not a third-party action. A fixed concurrency group queues deploys (`cancel-in-progress: false`).
+  - A gate job skips the deploy while the Cloudflare secrets are missing, because `secrets` cannot be read in a job-level `if:`.
+  - The content build is strict (no `CONTENT_FALLBACKS`). A content-triggered deploy reports the budgets without enforcing them, while other deploys enforce them.
+  - Route: delegated direct (one writer). Trigger evidence: the work touches 2+ non-trivial files (workflow, verifier flag and its tests, README).
+- 2026-09-29, PD-07 written on `feat/deploy-workflow` by one writer:
+  - `.github/workflows/deploy.yml` with a gate job, a strict build, verification and `pnpm exec wrangler deploy`;
+  - the `--budgets=enforce|report` flag (`src/lib/budget-mode.ts` plus tests);
+  - the README "Deployment" section.
+    The writer's dry run used the adapter's redirected config (`dist/server/wrangler.json`, assets `dist/client`) and needed no credentials. A read-only API check (Cloudflare MCP) found the account has no `workers.dev` subdomain yet (error 10007). Opening Workers & Pages once creates it, and it is README step 0.
+    Assess: high, so an independent read-only review ran and found no blockers. Accepted and fixed:
+  - only `main` is deployed (the gate skips a manual run on another branch with a notice);
+  - the README and workflow wording on concurrency (GitHub replaces a waiting run);
+  - report mode relaxes only an exceeded maximum, while a broken measurement (missing, non-finite, negative, below minimum) still fails (`splitBudgetFailures`).
+    Declined: a `paths` filter on push (every merge deploys by design). End-to-end probes with a limit temporarily changed and then restored: over-limit gives report RC=0 and enforce RC=1; below-minimum gives report RC=1. `actionlint` RC=0; `pnpm check` RC=0. PD-07 stays open until the first real deploy succeeds.
 
 ## Acceptance criteria
 
