@@ -84,8 +84,11 @@ Slices 2 to 5 are independent of each other and branch from `main` once slice 1 
 - 2026-09-29: before the merge, the user opened Workers & Pages, which created the `workers.dev` subdomain `lauryherrera-photo` (verified with a read-only API call), and set `CLOUDFLARE_ACCOUNT_ID`. PR #37 was merged as `7d87727`. The push triggered Deploy run 36628045044: gate and deploy both succeeded, budgets were enforced, Worker `photo-studio` was uploaded (version `b27f9a45-5a04-4b05-8d2e-282ca1760199`). Checked live at `https://photo-studio.lauryherrera-photo.workers.dev`:
   - the homepage returns 200 with the title, `noindex, nofollow` in the meta and in `X-Robots-Tag`, and the CSP, HSTS and `X-Frame-Options` headers;
   - an unknown path returns 404, `robots.txt` returns 200 and there is no `sitemap.xml` (non-indexable, as intended);
-  - `POST /api/contact` without an origin returns 403.
-    PD-07 is done. Still open for PD-08: the Turnstile widget and `PUBLIC_TURNSTILE_SITE_KEY`, the four `wrangler secret put` runtime values (Resend needs a verified domain), the Sanity webhook, the custom domain with `PUBLIC_SITE_URL`, and the rest of the launch checklist. Until Turnstile and Resend are configured, the live contact form shows its "not configured" error.
+  - the contact endpoint, probed live after a review-bot finding on PR #38:
+    - with JSON and no `Origin` it returns 503 `not_configured`, and with the site's own `Origin` it also returns 503 `not_configured` (expected until Turnstile and Resend exist);
+    - with a foreign `Origin` it returns 403 `forbidden_origin`.
+      These match `src/contact/http.test.ts`. A first probe (a POST with no body, no `Content-Type` and no `Origin`) had returned 403 with the plain-text body "Cross-site POST form submissions are forbidden". That answer comes from Astro's built-in `security.checkOrigin` middleware, not from the contact handler: it is on by default (`astro/dist/core/config/schemas/defaults.js:44`), and `astro/dist/core/app/origin-check.js:15-21` rejects a non-GET request that has no `Content-Type` and no matching `Origin`, or that has a form content type and no matching `Origin`. The handler never saw that request, so it proved nothing about the handler.
+      PD-07 is done. Still open for PD-08: the Turnstile widget and `PUBLIC_TURNSTILE_SITE_KEY`, the four `wrangler secret put` runtime values (Resend needs a verified domain), the Sanity webhook, the custom domain with `PUBLIC_SITE_URL`, and the rest of the launch checklist. Until Turnstile and Resend are configured, the live contact form shows its "not configured" error.
 
 ## Acceptance criteria
 
